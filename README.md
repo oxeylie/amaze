@@ -1,6 +1,6 @@
-# Amaze: a TUI multiplayer mini-game
+# Amaze: will be a TUI multiplayer mini-game
 
-Amaze is a multiplayer exploration mini-game
+Amaze will be a multiplayer exploration mini-game
 
 ### Compilation:
 
