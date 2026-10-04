@@ -7,7 +7,7 @@
 #ifndef _ACP_H
 #define _ACP_H
 
-#include <acp/protocol.h>
+#include <acp/sock.h>
 
 #define ACP_DEFAULT_PORT 4901
 

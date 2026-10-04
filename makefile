@@ -3,7 +3,7 @@
 ##
 
 CC        := $(if $(filter Darwin,$(shell uname -s)),clang,gcc)
-FLAGS     := -std=c99 -Wall
+FLAGS     := -std=gnu99 -Wall
 ODIR      := ./build
 OUTDIR    := ./out
 BASEDIR   := ./src

@@ -8,6 +8,8 @@
 #define _MISC_H
 
 #include <misc/log.h>
+#include <stdint.h>
+#include <time.h>
 
 /// Argument Parser
 
@@ -39,5 +41,8 @@ struct programArgument {
  * @return Error code
  */
 void evalArgsContext(char** argv, int argc, const struct programArgument* args);
+
+struct timespec nsToTimespec(uint64_t ns);
+uint64_t timespecToNs(struct timespec time_spec);
 
 #endif // _MISC_H

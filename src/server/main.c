@@ -4,17 +4,10 @@
  * Copyright (C) 2026 @kcraft059 - GPL v3
  *-----------------------------------------------------------------------**/
 
-#include "misc/log.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-#ifdef __linux__
-#include <sys/epoll.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
 
 #include <arpa/inet.h>
 #include <sys/errno.h>
@@ -22,17 +15,18 @@
 
 #include <acp/acp.h>
 #include <misc/misc.h>
-#include <server/core.h>
+
+#define TICK_FREQ 20
 
 // Local declarations
 
-int argSetPort(char** argv, int argc);
-void sockHandler(struct sock_context* sock_ctx, enum sock_event event);
+static int argSetPort(char** argv, int argc);
+static void eventHandler(struct sock_context* sock_ctx, enum sock_event event);
 
 uint16_t port = ACP_DEFAULT_PORT;
 const struct programArgument args[] = {
-    {.name = "-p", .description = "set listening port", .func = argSetPort}, // Signify end of array
-    {.name = NULL, .description = NULL, .func = NULL},                       // Signify end of array
+    {.name = "-p", .description = "set listening port", .func = argSetPort},
+    {.name = NULL, .description = NULL, .func = NULL}, // Signify end of array
 };
 
 // Global functions
@@ -40,16 +34,17 @@ const struct programArgument args[] = {
 int main(int argc, char** argv) {
   evalArgsContext(argv, argc, args);
 
-  int server_sock_fd, queue_fd;
+  int queue_fd, server_sock_fd;
   struct sock_context* server_sock_ctx;
 
-  queue_fd = initQueue();
-  server_sock_fd = initServerSocket(port);
-  server_sock_ctx = addSockToQueue(queue_fd, server_sock_fd, T_SERVER_SOCK);
-  if (server_sock_ctx == NULL)
+  if ((queue_fd = initQueue()) == -1)
+    panicErrorf(errno, "Initiating queue");
+  if ((server_sock_fd = initListenSocket(port)) == -1)
+    panicErrorf(errno, "Seting up listen socket on port %d", port);
+  if ((server_sock_ctx = addSockToQueue(queue_fd, server_sock_fd, T_LISTEN_SOCK)) == NULL)
     panicErrorf(errno, "Adding server sock to queue");
 
-  handleSockEvents(queue_fd, sockHandler, 40, &(struct timespec){30, 0});
+  handleSockEvents(queue_fd, eventHandler, 10, &(struct timespec){30, 0});
 
   closeSockCtx(server_sock_ctx);
   close(queue_fd);
@@ -59,12 +54,13 @@ int main(int argc, char** argv) {
 
 // Local functions
 
-void sockHandler(struct sock_context* sock_ctx, enum sock_event event) { // WIP
-  if (sock_ctx->type != T_SERVER_SOCK)
+static void eventHandler(struct sock_context* sock_ctx, enum sock_event event) { // WIP
+  if (sock_ctx->type != T_LISTEN_SOCK)
     return;
 
   int client_sock_fd;
   while ((client_sock_fd = accept(sock_ctx->fd, NULL, NULL)) != -1) {
+		printLogf("Accepting client");
     send(client_sock_fd, "Hello !", 8, 0);
     close(client_sock_fd);
   }
@@ -73,7 +69,7 @@ void sockHandler(struct sock_context* sock_ctx, enum sock_event event) { // WIP
     printErrorf(errno, "Accepting incomming connection");
 };
 
-int argSetPort(char** argv, int argc) {
+static int argSetPort(char** argv, int argc) {
   int val, n, pos;
   if (argc < 1) {
     errno = EINVLPRM; // Check if there's enough params

@@ -6,8 +6,10 @@
 
 #include <misc/misc.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <time.h>
 
 void evalArgsContext(char** argv, int argc, const struct programArgument* args) {
   for (int arg_idx = 1; arg_idx < argc; arg_idx++) { // Start at i = 1 because we don't care about path
@@ -33,4 +35,14 @@ void evalArgsContext(char** argv, int argc, const struct programArgument* args) 
 
     arg_idx += offset;
   }
+}
+
+inline struct timespec nsToTimespec(uint64_t ns) {
+  return (struct timespec){
+      .tv_sec = ns / 1000000000,
+      .tv_nsec = ns % 1000000000};
+}
+
+inline uint64_t timespecToNs(struct timespec time_spec) {
+  return time_spec.tv_sec * 1000000000 + time_spec.tv_nsec;
 }

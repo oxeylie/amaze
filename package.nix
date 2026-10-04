@@ -11,7 +11,7 @@ let
       buildInputs = with pkgs; [
         ncurses
       ];
-      nativeBuildInputs = with pkgs; [ gnumake ] ++ (if pkgs.stdenv.isLinux then [ gcc ] else [ clang ]);
+      # nativeBuildInputs = with pkgs; [ gnumake ] ++ (if pkgs.stdenv.isLinux then [ gcc ] else [ clang ]);
 
       buildPhase = ''
         make ${target}
