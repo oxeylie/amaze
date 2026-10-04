@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------*
  * Sock management for acp over tcp
  *
- * Copyright (C) 2026 @kcraft059 - GPL v3
+ * Copyright (C) 2026 @oxeylie - GPL v3
  *-----------------------------------------------------------------------**/
 
 #include "include/acp/sock.h"

@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------*
  * Miscellaneous common utilities for client/server
  *
- * Copyright (C) 2026 @kcraft059 - GPL v3
+ * Copyright (C) 2026 @oxeylie - GPL v3
  *-----------------------------------------------------------------------**/
 
 #include <misc/misc.h>
