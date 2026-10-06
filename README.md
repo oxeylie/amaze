@@ -1,6 +1,11 @@
-# Amaze: will be a TUI multiplayer mini-game
+# Amaze
 
-Amaze will be a multiplayer exploration mini-game
+> ![NOTE]
+> The project is still in a state of very early development, for now core features are still veing implemented.
+
+## Core concept idea:
+
+Open world TUI exploration game
 
 ### Compilation:
 
