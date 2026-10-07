@@ -1,7 +1,7 @@
 /**-----------------------------------------------------------------------*
  * Sock management for acp over tcp
  *
- * Copyright (C) 2026 @oxeylie - GPL v3
+ * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
 #ifndef _ACP_NET_H

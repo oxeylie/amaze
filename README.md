@@ -10,3 +10,5 @@ cd amaze
 make client
 mv ./out/client ./client
 ```
+
+*This program is released under the AGPL v3.0 license*
