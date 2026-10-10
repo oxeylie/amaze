@@ -7,7 +7,6 @@
 #ifndef _MISC_ERROR_H
 #define _MISC_ERROR_H
 
-#include <errno.h>
 #include <stdio.h>
 #include <sys/errno.h>
 

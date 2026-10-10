@@ -13,8 +13,9 @@
 #include <sys/errno.h>
 #include <sys/socket.h>
 
-#include <acp/acp.h>
-#include <misc/misc.h>
+#include <atp/atp.h>
+#include <log.h>
+#include <misc.h>
 
 #define TICK_FREQ 20
 
@@ -60,7 +61,7 @@ static void eventHandler(struct sock_context* sock_ctx, enum sock_event event) {
 
   int client_sock_fd;
   while ((client_sock_fd = accept(sock_ctx->fd, NULL, NULL)) != -1) {
-		printLogf("Accepting client");
+    printLogf("Accepting client");
     send(client_sock_fd, "Hello !", 8, 0);
     close(client_sock_fd);
   }

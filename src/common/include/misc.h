@@ -7,7 +7,6 @@
 #ifndef _MISC_H
 #define _MISC_H
 
-#include <misc/log.h>
 #include <stdint.h>
 #include <time.h>
 

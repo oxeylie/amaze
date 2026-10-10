@@ -4,12 +4,15 @@
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
-#include <misc/misc.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/errno.h>
 #include <time.h>
+
+#include <sys/errno.h>
+
+#include <log.h>
+#include <misc.h>
 
 void evalArgsContext(char** argv, int argc, const struct programArgument* args) {
   for (int arg_idx = 1; arg_idx < argc; arg_idx++) { // Start at i = 1 because we don't care about path

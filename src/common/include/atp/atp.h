@@ -4,11 +4,11 @@
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
-#ifndef _ACP_H
-#define _ACP_H
+#ifndef _ATP_H
+#define _ATP_H
 
-#include <acp/sock.h>
+#include <atp/sock.h>
 
 #define ACP_DEFAULT_PORT 4901
 
-#endif // _ACP_H
+#endif // _ATP_H

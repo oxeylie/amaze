@@ -4,14 +4,15 @@
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
-#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include <misc/log.h>
+#include <sys/errno.h>
+
+#include <log.h>
 
 #define EOFST(pos) (pos - ELAST)
 

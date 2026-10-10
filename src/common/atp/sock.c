@@ -4,11 +4,9 @@
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
-#include "include/acp/sock.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -17,12 +15,11 @@
 #elif defined(__APPLE__)
 #include <sys/event.h>
 #endif
-
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-#include <acp/acp.h>
-#include <misc/misc.h>
+#include <atp/sock.h>
+#include <log.h>
 
 // Local function declarations
 
