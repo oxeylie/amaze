@@ -31,12 +31,12 @@ extern FILE* error_file;
 extern FILE* log_file;
 
 // Prints log with formated message
-void printLogf(char* restrict msg_fmt, ...);
+void print_logf(char* restrict msg_fmt, ...);
 // Prints error with formated message
-void printErrorf(err code, char* restrict err_fmt, ...);
+void print_errorf(err code, char* restrict err_fmt, ...);
 // Prints & panic err with formated message
-void panicErrorf(err code, char* restrict err_fmt, ...);
+void panic_errorf(err code, char* restrict err_fmt, ...);
 // Converts an integer error code to an error string
-const char* errorToStr(err code);
+const char* error_str(err code);
 
 #endif // _LOG_H

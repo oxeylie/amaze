@@ -23,15 +23,15 @@
 
 // Local function declarations
 
-static int addReadSockQueue(int queue_fd, struct sock_context* sock_ctx);
-static int setNonBlock(int fd);
+static int add_read_sock_queue(int queue_fd, struct sock_context* sock_ctx);
+static int set_non_block(int fd);
 
 // Global function definition
 
-int initPeerSocket(int port, long adress) {
+int init_peer_socket(int port, long adress) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Create new socket
   if (sock_fd == -1) {
-    printErrorf(errno, "Opening listen TCP socket");
+    print_errorf(errno, "Opening listen TCP socket");
     return -1;
   }
 
@@ -41,28 +41,28 @@ int initPeerSocket(int port, long adress) {
       .sin_addr.s_addr = htonl(adress),
   };
   if (connect(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-    printErrorf(errno, "Connecting to server");
+    print_errorf(errno, "Connecting to server");
     return -1;
   };
 
-  if (setNonBlock(sock_fd) == -1) {
-    printErrorf(errno, "Setting flags on peer socket");
+  if (set_non_block(sock_fd) == -1) {
+    print_errorf(errno, "Setting flags on peer socket");
     return -1;
   }
 
   return sock_fd;
 }
 
-int initListenSocket(int port) {
+int init_listen_sock(int port) {
   int sock_fd = socket(AF_INET, SOCK_STREAM, 0); // Initiate TCP ipv4 connection
 
   if (sock_fd == -1) {
-    printErrorf(errno, "Opening listen TCP socket");
+    print_errorf(errno, "Opening listen TCP socket");
     return -1;
   }
 
-  if (setNonBlock(sock_fd) == -1) {
-    printErrorf(errno, "Setting flags on listen socket");
+  if (set_non_block(sock_fd) == -1) {
+    print_errorf(errno, "Setting flags on listen socket");
     return -1;
   }
 
@@ -73,19 +73,19 @@ int initListenSocket(int port) {
   };
 
   if (bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr)) == -1) {
-    printErrorf(errno, "Binding listen socket to port %d", port);
+    print_errorf(errno, "Binding listen socket to port %d", port);
     return -1;
   }
 
   if (listen(sock_fd, MAX_QUEUED_CLIENTS) == -1) { // Set sock to passive listening with MAX_QUEUED_CLIENTS
-    printErrorf(errno, "Listening on socket");
+    print_errorf(errno, "Listening on socket");
     return -1;
   };
 
   return sock_fd;
 }
 
-int initQueue() {
+int init_queue() {
   int queue_fd;
 
 #ifdef __linux__
@@ -97,7 +97,7 @@ int initQueue() {
 #elif defined(__APPLE__)
   queue_fd = kqueue(); // Init a kqeue instance
   if (queue_fd == -1) {
-    printErrorf(errno, "Creating kqueue instance");
+    print_errorf(errno, "Creating kqueue instance");
     return -1;
   }
 #endif
@@ -105,7 +105,7 @@ int initQueue() {
   return queue_fd;
 }
 
-struct sock_context* addSockToQueue(int queue_fd, int sock_fd, enum sock_type type) { // Needs to live in memory, should be allocated
+struct sock_context* add_sock_to_queue(int queue_fd, int sock_fd, enum sock_type type) { // Needs to live in memory, should be allocated
   struct sock_context* sock_ctx = malloc(sizeof(struct sock_context));
   sock_ctx->type = type;
   sock_ctx->fd = sock_fd;
@@ -113,19 +113,19 @@ struct sock_context* addSockToQueue(int queue_fd, int sock_fd, enum sock_type ty
   switch (sock_ctx->type) {
   case T_LISTEN_SOCK:
   case T_PEER_SOCK:
-    return addReadSockQueue(queue_fd, sock_ctx) != -1 ? sock_ctx : NULL;
+    return add_read_sock_queue(queue_fd, sock_ctx) != -1 ? sock_ctx : NULL;
   default:
     return NULL;
   }
 };
 
-int closeSockCtx(struct sock_context* sock_ctx) {
+int close_sock_ctx(struct sock_context* sock_ctx) {
   if (close(sock_ctx->fd) == -1) return -1;
   free(sock_ctx);
   return 0;
 };
 
-int handleSockEvents(int queue_fd, event_handler handler, int max_events, struct timespec* timeout) {
+int handle_sock_event(int queue_fd, event_handler handler, int max_events, struct timespec* timeout) {
 #ifdef __linux__
   struct epoll_event events[max_events];
   int n = epoll_pwait2(queue_fd, events, max_events, timeout, NULL);
@@ -175,7 +175,7 @@ int handleSockEvents(int queue_fd, event_handler handler, int max_events, struct
 
 // Local function definiton
 
-static int addReadSockQueue(int queue_fd, struct sock_context* sock_ctx) {
+static int add_read_sock_queue(int queue_fd, struct sock_context* sock_ctx) {
 #ifdef __linux__
 #error "Not implemented yet"
   // epoll_ctl
@@ -193,7 +193,7 @@ static int addReadSockQueue(int queue_fd, struct sock_context* sock_ctx) {
 #endif
 }
 
-static inline int setNonBlock(int fd) {
+static inline int set_non_block(int fd) {
   int socket_flags;
   if ((socket_flags = fcntl(fd, F_GETFL)) == -1)
     return -1;

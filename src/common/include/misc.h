@@ -22,10 +22,10 @@ struct arg_def {
 };
 
 // Eval arguments in the context of the given argument table
-void evalArgsContext(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc);
+void eval_args(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc);
 // Transforms nanoseconds to timespec
-struct timespec nsToTimespec(uint64_t ns);
+struct timespec ns_to_timespec(uint64_t ns);
 // Transforms timespec to nanoseconds
-uint64_t timespecToNs(struct timespec time_spec);
+uint64_t timespec_to_ns(struct timespec time_spec);
 
 #endif // _MISC_H

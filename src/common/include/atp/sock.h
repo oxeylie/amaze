@@ -34,12 +34,12 @@ struct sock_context {
 
 typedef void (*event_handler)(struct sock_context* sock_ctx, enum sock_event event);
 
-int initQueue();
-int initListenSocket(int port);
-int initPeerSocket(int port, long adress);
+int init_queue();
+int init_listen_sock(int port);
+int init_peer_socket(int port, long adress);
 
-struct sock_context* addSockToQueue(int queue_fd, int sock_fd, enum sock_type type);
-int closeSockCtx(struct sock_context* sock_ctx);
+struct sock_context* add_sock_to_queue(int queue_fd, int sock_fd, enum sock_type type);
+int close_sock_ctx(struct sock_context* sock_ctx);
 
-int handleSockEvents(int queue_fd, event_handler handler, int max_events, struct timespec* timeout);
-#endif // _ACP_QOCK_H
+int handle_sock_event(int queue_fd, event_handler handler, int max_events, struct timespec* timeout);
+#endif // _ACP_SOCK_H
