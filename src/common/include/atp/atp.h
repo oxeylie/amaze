@@ -1,5 +1,5 @@
 /**-----------------------------------------------------------------------*
- * ACP - Amaze communication protocol
+ * ACP - Amaze transmission protocol
  *
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/

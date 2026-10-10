@@ -1,17 +1,16 @@
 /**-----------------------------------------------------------------------*
- * Sock management for acp over tcp
+ * Sock management for atp over tcp
  *
  * Copyright (C) 2026 @oxeylie - AGPL v3.0
  *-----------------------------------------------------------------------**/
 
-#ifndef _ACP_NET_H
-#define _ACP_NET_H
-
-#include <time.h>
-
+#ifndef _ACP_SOCK_H
+#define _ACP_SOCK_H
 #if !defined(__linux__) && !defined(__APPLE__)
 #error "Platform not supported"
 #endif
+
+#include <time.h>
 
 #define MAX_QUEUED_CLIENTS 10
 
@@ -43,4 +42,4 @@ struct sock_context* addSockToQueue(int queue_fd, int sock_fd, enum sock_type ty
 int closeSockCtx(struct sock_context* sock_ctx);
 
 int handleSockEvents(int queue_fd, event_handler handler, int max_events, struct timespec* timeout);
-#endif // _ACP_NET_H
+#endif // _ACP_QOCK_H

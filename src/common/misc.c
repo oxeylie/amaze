@@ -5,6 +5,7 @@
  *-----------------------------------------------------------------------**/
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
@@ -14,14 +15,14 @@
 #include <log.h>
 #include <misc.h>
 
-void evalArgsContext(char** argv, int argc, const struct programArgument* args) {
+void evalArgsContext(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc) {
   for (int arg_idx = 1; arg_idx < argc; arg_idx++) { // Start at i = 1 because we don't care about path
-    const struct programArgument* match_arg;
+    const struct arg_def* match_arg;
     char* name_arg = argv[arg_idx];
     bool match = false;
 
-    for (int match_idx = 0; args[match_idx].name != NULL; match_idx++) { // Search for name match in arguements array
-      match_arg = &args[match_idx];
+    for (int match_idx = 0; match_idx < arglc; match_idx++) { // Search for name match in arguements array
+      match_arg = &arglv[match_idx];
 
       if (strcmp(name_arg, match_arg->name) == 0) { // If name of args matches with an available arg
         match = true;

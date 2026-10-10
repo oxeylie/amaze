@@ -7,41 +7,25 @@
 #ifndef _MISC_H
 #define _MISC_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <time.h>
 
-/// Argument Parser
+// Argument function pointer
+typedef size_t (*arg_func_t)(char** argv, size_t argc);
 
-/**
- * Executes code given following args
- *
- * @param argv Args following the given argument
- * @param argc Number of args
- *
- * @return Number of args used
- */
-typedef int (*argumentFunc)(char** argv, int argc);
-
-/**
- * Program argument struct
- */
-struct programArgument {
+// Argument definition structure
+struct arg_def {
   char* name;        // Name of the arguement eg: "-c"
   char* description; // Argument description
-  argumentFunc func; // Associated function
+  arg_func_t func; // Associated function
 };
 
-/**
- * Eval arguments in the context of the given argument table
- *
- * @param argv Arguments to parse
- * @param args Argument table for matching (NULL-Terminated)
- *
- * @return Error code
- */
-void evalArgsContext(char** argv, int argc, const struct programArgument* args);
-
+// Eval arguments in the context of the given argument table
+void evalArgsContext(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc);
+// Transforms nanoseconds to timespec
 struct timespec nsToTimespec(uint64_t ns);
+// Transforms timespec to nanoseconds
 uint64_t timespecToNs(struct timespec time_spec);
 
 #endif // _MISC_H
