@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
-#include <pthread.h>
-
 #include <log.h>
 #include <misc.h>
+
+#include <pthread.h>
 
 void* network_thread_init(void* arg);
 void* terrain_thread_init(void* arg);

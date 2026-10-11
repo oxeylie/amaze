@@ -1,14 +1,15 @@
 /**-----------------------------------------------------------------------*
  * main.c
- * 
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
-#include <pthread.h>
-
 #include <log.h>
 #include <misc.h>
+#include <network/event.h>
+
+#include <pthread.h>
 
 void* network_thread_init(void* arg);
 void* terrain_thread_init(void* arg);
