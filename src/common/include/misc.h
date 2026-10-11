@@ -1,11 +1,12 @@
 /**-----------------------------------------------------------------------*
- * Miscellaneous common utilities for client / server
- *
- * Copyright (C) 2026 @oxeylie - AGPL v3.0
+ * misc.h
+ * 
+ * Copyright (C) 2026 @oxeylie
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
-#ifndef _MISC_H
-#define _MISC_H
+#ifndef MISC_H
+#define MISC_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -28,4 +29,4 @@ struct timespec ns_to_timespec(uint64_t ns);
 // Transforms timespec to nanoseconds
 uint64_t timespec_to_ns(struct timespec time_spec);
 
-#endif // _MISC_H
+#endif // MISC_H

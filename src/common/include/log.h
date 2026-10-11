@@ -1,11 +1,12 @@
 /**-----------------------------------------------------------------------*
- * Common error codes for client/server
- *
- * Copyright (C) 2026 @oxeylie - AGPL v3.0
+ * log.h
+ * 
+ * Copyright (C) 2026 @oxeylie
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
-#ifndef _LOG_H
-#define _LOG_H
+#ifndef LOG_H
+#define LOG_H
 
 #include <stdio.h>
 
@@ -39,4 +40,4 @@ void panic_errorf(err code, char* restrict err_fmt, ...);
 // Converts an integer error code to an error string
 const char* error_str(err code);
 
-#endif // _LOG_H
+#endif // LOG_H

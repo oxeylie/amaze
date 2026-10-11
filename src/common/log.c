@@ -1,7 +1,8 @@
 /**-----------------------------------------------------------------------*
- * Common error codes for client/server
- *
- * Copyright (C) 2026 @oxeylie - AGPL v3.0
+ * log.c
+ * 
+ * Copyright (C) 2026 @oxeylie
+ * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
 #include <stdarg.h>

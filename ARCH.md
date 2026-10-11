@@ -8,15 +8,16 @@ Game architecure planning
 **Threads**:
  - Main (Logic) (handles user-inputs, receive/sends server updates, sends graphic updates) 
  - Network (handles ATP stream, start/terminate connection, receive/sends state updates)
+ - Sound (handles sound playback)
  - Rendering (handles display, orchestrate (load balance) workers to compute graphics)
    - Workers 1..x (graphic computation)
- - (Music)
 
 **Thread communication**:
  - Logic -> Network:     updates + disconnects `queue mutex`     + `queue wake (EVFILT_USER/eventfd)`
  - Network -> Logic:     updates + disconnects `queue mutex`     + `mutex condition`
  - Logic -> Rendering:   loaded state/terrain  `hasmap + structs mutex`
  - Rendering <-> Worker: screen buffer         `2d array mutexs` + `mutex condition`
+ - Logic -> Sound:       playback requests     `queue mutex`
 
 ### Headers
 
@@ -26,6 +27,12 @@ Game architecure planning
  - Graphics display
  - Movement interpolation
  - UI 
+
+**sound.h**
+ - Sound loading
+ - Sound computation
+ - Sound playback
+ - Sound mix
 
 ## Server 
 ### Threading
@@ -60,8 +67,9 @@ Game architecure planning
 ## Common
 ### Headers
 
-**atp.h**:
+**network.h**:
  - Sockets
+ - Events
  - Requests format
  - Handshake & identity
 
