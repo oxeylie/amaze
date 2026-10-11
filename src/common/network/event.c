@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
- * sock.c
- *
+ * event.c
+ * 
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -11,7 +11,7 @@
 #include <sys/event.h>
 #endif
 
-#include <network/sock.h>
+#include <network/event.h>
 
 int init_listen_sock(int port) {
   return 0;
