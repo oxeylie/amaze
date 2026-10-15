@@ -8,6 +8,7 @@
 #ifndef NET_SOCK_H
 #define NET_SOCK_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -19,20 +20,23 @@
 #error "Unsupported platform (only linux/FreeBSD/macOS)"
 #endif
 
+#define CTX_ERR 0b1
+
 // Queue event types
-enum qevtype : int16_t {
+enum qevtype : int16_t { // F: Can be set as flag T: can be triggered
   EVT_NONE = 0b0,
-  EVT_READ = 0b1,      // Can be both set as flag and triggered
-  EVT_WRITE = 0b10,    // Can be both set as flag and triggered
-  EVT_USER = 0b100,    // Can be set as only flag and triggered
-  EVT_HUP = 0b1000,    // Can be set as flag but not alone and triggered (note: will always be delivered after EVT_READ)
-  EVT_ERROR = 0b10000, // Cannot be set as flag but can be triggered
+  EVT_READ = 0b1,      // [F,T] Read avail
+  EVT_WRITE = 0b10,    // [F,T] Write avail
+  EVT_USER = 0b100,    // [F,T] Event triggered
+  EVT_RDHUP = 0b1000,  // [F,T] Read end Hangup
+  EVT_ERROR = 0b10000, // [F] Error happened on socket
 };
 
 // Queue event data
 union qevdata {
   void* ptr;
   int error;
+  size_t count;
 };
 
 // Queue event
@@ -47,8 +51,10 @@ typedef void (*evhandler_t)(enum qevtype ev_type, union qevdata ev_data, qevent_
 // Context associated to a queue event
 struct evcontext {
   evhandler_t handler; // Function that will handle the event
-  int16_t filters;     // OR'd queue events which should trigger the event
+  uint8_t filters;     // OR'd queue events which should trigger the event
+  uint8_t flags;       // OR'd context flags
   int ident;           // Event identity (generally fd)
+  int queue;           // Associated queue for event
   void* u_data;        // Associated user data
 };
 
@@ -56,7 +62,7 @@ struct evcontext {
 // - port contains the listening port for the sock
 // - max_clients contains the maximum queued clients
 // - [return] 0 if successfull -1 if failed + errno set
-int init_listen_sock(int port, int max_clients);
+int init_listen_sock(int port, size_t max_clients);
 // Inits a tcp connection to given adress on given port
 // - port contains the port to connect to
 // - address contains the address to connect to
@@ -90,16 +96,15 @@ void free_sock_ev(qevent_t* sock_ctx) __attribute__((nonnull));
 // Inits an event queue
 // - [return] file descriptor of event queue if successfull -1 if failed + errno set
 int init_ev_queue();
-// Registers an event in the queue
+// Registers an event to a queue
 // - queue_fd contains the file descriptor of the target queue
 // - ev_ctx contains the event to be registered in the queue
 // - [return] 0 if successfull -1 if failed + errno set
 int reg_ev(int queue_fd, qevent_t* ev_ctx) __attribute__((nonnull(2)));
-// Unregisters an event in the queue
-// - queue_fd contains the file descriptor of the target queue
+// Unregisters the event from its queue
 // - ev_ctx contains the event to be unregistered of the queue
 // - [return] 0 if successfull -1 if failed + errno set
-int unreg_ev(int queue_fd, qevent_t* ev_ctx) __attribute__((nonnull(2)));
+int unreg_ev(qevent_t* ev_ctx) __attribute__((nonnull));
 // Handle triggered events in the queue
 // - queue_fd contains the file descriptor of the target queue
 // - max_events contains the maximum number of allowed events to be handled

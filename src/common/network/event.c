@@ -11,84 +11,179 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <time.h>
-#if defined(NET_USE_EPOLL)
-#include <sys/epoll.h>
-#elif defined(NET_USE_KQUEUE)
+#if defined(NET_USE_KQUEUE)
 #include <sys/event.h>
+#elif defined(NET_USE_EPOLL)
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 #endif
 
-const int16_t ALLOWED_EVT_FLAGS = EVT_READ | EVT_WRITE | EVT_USER | EVT_HUP;
+#if defined(NET_USE_KQUEUE)
+#define EV_ID_TBL_SIZE 8
+#define EV_ID_TBL_SLOTS (EV_ID_TBL_SIZE * 8)
+static uint8_t event_id_table[EV_ID_TBL_SIZE];
+#endif
+static const uint8_t allowed_EVT_flags = EVT_READ | EVT_WRITE | EVT_USER | EVT_RDHUP;
 
-static int _set_flags(int fd, int mask);
-static qevent_t* _alloc_ev_ctx();
+static int set_sock_flags(int fd, int mask);
+static qevent_t* alloc_ev_ctx();
 
-int init_listen_sock(int port, int max_clients) {
+int init_listen_sock(int port, size_t max_clients) {
   int sock_fd;
-  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) return -1; // Inits a TCP (ipv4) socket
-  if (_set_flags(sock_fd, O_NONBLOCK) == -1) return -1;             // Set non-blocking state
-
+  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) goto err_return; // Inits a TCP (ipv4) socket
+  if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1) goto err_close; // Prevent interfering with socks in TIMEWAIT
   struct sockaddr_in sock_addr = {
       .sin_family = AF_INET,                // Set type to TCP
       .sin_port = htons(port),              // Configure port
       .sin_addr.s_addr = htonl(INADDR_ANY), // Configure adress
   };
-  if (bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr)) == -1) return -1; // Bind port to adress
-  if (listen(sock_fd, max_clients) == -1) return -1;                                   // Listen on socket
+  if (bind(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr)) == -1) goto err_close; // Bind port to adress
+  if (listen(sock_fd, max_clients) == -1) goto err_close;                                   // Listen on socket
+
+  if (set_sock_flags(sock_fd, O_NONBLOCK) == -1) goto err_close; // Set non-blocking state
   return sock_fd;
+
+err_close:; // Error handling
+  int errno_before = errno;
+  close(sock_fd);
+  errno = errno_before;
+err_return:
+  return -1;
 }
 
 int init_peer_sock(int port, long address) {
   int sock_fd;
-  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) return -1; // Inits a TCP (ipv4) socket
-  if (_set_flags(sock_fd, O_NONBLOCK) == -1) return -1;             // Set non-blocking state
-
+  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) goto err_return; // Inits a TCP (ipv4) socket
   struct sockaddr_in sock_addr = {
-      .sin_family = AF_INET,                // Set type to TCP
-      .sin_port = htons(port),              // Configure port
-      .sin_addr.s_addr = htonl(INADDR_ANY), // Configure adress
+      .sin_family = AF_INET,             // Set type to TCP
+      .sin_port = htons(port),           // Configure port
+      .sin_addr.s_addr = htonl(address), // Configure adress
   };
-  if (connect(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr)) == -1) return -1; // Connect to adress
+  if (connect(sock_fd, (struct sockaddr*)&sock_addr, sizeof(sock_addr)) == -1) goto err_close; // Connect to adress
+
+  if (set_sock_flags(sock_fd, O_NONBLOCK) == -1) goto err_close; // Set non-blocking state
   return sock_fd;
+
+err_close:; // Error handling
+  int errno_before = errno;
+  close(sock_fd);
+  errno = errno_before;
+err_return:
+  return -1;
 }
 
 qevent_t* init_user_ev(evhandler_t handler, void* u_data) {
+  qevent_t* sock_ctx = NULL;
+  int ident;
+
+#if defined(NET_USE_KQUEUE)
+  for (ident = 0; ident < EV_ID_TBL_SLOTS; ident++)     // Select a suitable ident
+    if (event_id_table[ident / 8] & (1 << (ident % 8))) // Check if bit is set ot know if ident is avail
+      continue;
+    else {
+      event_id_table[ident / 8] |= (1 << (ident % 8)); // Set bit to indicate allocation
+      break;
+    }
+
+  if (ident >= EV_ID_TBL_SLOTS) { // If not enough slots for user id
+    errno = ENOSPC;               // Send not enough space left
+    goto err_return;
+  }
+
+#elif defined(NET_USE_EPOLL)
+  if ((ident = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) == -1) // Init with 0 in counter
+    return NULL;
+
+#endif
+  if ((sock_ctx = alloc_ev_ctx()) == NULL) goto err_close;
+  *sock_ctx = (qevent_t){
+      .ident = ident,
+      .queue = -1,
+      .filters = EVT_USER,
+      .handler = handler,
+      .u_data = u_data,
+  };
+  return sock_ctx;
+
+err_close:
+#if defined(NET_USE_KQUEUE)
+  event_id_table[ident / 8] &= ~(1 << (ident % 8));
+#elif defined(NET_USE_EPOLL)
+  close(ident);
+#endif
+err_return:
   return NULL;
 }
+
 int trigger_user_ev(qevent_t* ev_ctx) {
-  return 0;
+  if (ev_ctx->queue == -1) {
+    errno = ENOENT;
+    return -1;
+  }
+
+#if defined(NET_USE_KQUEUE)
+  return kevent(ev_ctx->queue,
+                &(struct kevent){
+                    .ident = ev_ctx->ident,
+                    .filter = EVFILT_USER,
+                    .flags = 0,
+                    .fflags = NOTE_TRIGGER,
+                    .udata = ev_ctx},
+                1, NULL, 0, NULL);
+
+#elif defined(NET_USE_EPOLL)
+  if (write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t)) == -1) return -1;
+  else return 0;
+
+#endif
 }
+
 int free_user_ev(qevent_t* ev_ctx) {
+#if defined(NET_USE_KQUEUE)
+  event_id_table[ev_ctx->ident / 8] &= ~(1 << (ev_ctx->ident % 8)); // Mark ident as free on table
+  free(ev_ctx);                                                     // Free context object
+
+#elif defined(NET_USE_EPOLL)
+  if (close(ev_ctx->ident) == -1) return -1; // Close eventfd
+  free(ev_ctx);                              // Free context object
+
+#endif
   return 0;
 }
 
 qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_data) {
   qevent_t* sock_ctx;
 
-  // Error if empty or unallowed event flags in filters or EVT_HUP alone
-  if (filters == 0 || filters & ~(ALLOWED_EVT_FLAGS & ~EVT_USER) || !(filters & (ALLOWED_EVT_FLAGS & ~EVT_HUP & ~EVT_USER))) {
+  if (filters == 0 ||                                   // Check for empty filter
+      filters & ~(allowed_EVT_flags & ~EVT_USER) ||     // Check for forbidden flags
+      !(filters & (allowed_EVT_flags & ~EVT_USER)) ||   // Check that at least one of the main EVT_Flags is present
+      (filters & EVT_RDHUP && !(filters & EVT_READ))) { // Check for EVT_RDHUP without EVT_READ
     errno = EINVAL;
     return NULL;
   }
 
-  if ((sock_ctx = _alloc_ev_ctx()) == NULL) return NULL;
+  if ((sock_ctx = alloc_ev_ctx()) == NULL) return NULL;
   *sock_ctx = (qevent_t){
       .ident = fd,
+      .queue = -1,
       .filters = filters,
       .handler = handler,
       .u_data = u_data};
   return sock_ctx;
 }
 
-inline void free_sock_ev(qevent_t* sock_ctx) {
+void free_sock_ev(qevent_t* sock_ctx) {
   free(sock_ctx);
   return;
 }
 
-inline int init_ev_queue() {
+int init_ev_queue() {
 #if defined(NET_USE_KQUEUE)
   // Create a kqueue instance
   return kqueue();
@@ -100,15 +195,6 @@ inline int init_ev_queue() {
 }
 
 int reg_ev(int queue_fd, qevent_t* ev_ctx) {
-  bool empty_filt = ev_ctx->filters == 0;
-  bool unallowed_flags = (ev_ctx->filters & ~(ALLOWED_EVT_FLAGS)) != 0;
-  bool no_primary = !(ev_ctx->filters & (ALLOWED_EVT_FLAGS & ~EVT_HUP));
-  bool user_not_alone = !((ev_ctx->filters & EVT_USER) && !(ev_ctx->filters & (ALLOWED_EVT_FLAGS & ~EVT_USER)));
-  if (empty_filt || unallowed_flags || no_primary || user_not_alone) { // Invalid arge if any of those conditions are verified
-    errno = EINVAL;
-    return -1;
-  }
-
 #if defined(NET_USE_KQUEUE)
   struct kevent events[3];
   int r, ev_n = 0;
@@ -119,6 +205,11 @@ int reg_ev(int queue_fd, qevent_t* ev_ctx) {
     events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_WRITE, .flags = EV_ADD | EV_RECEIPT, .udata = ev_ctx};
   if (ev_ctx->filters & EVT_USER)
     events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_USER, .flags = EV_ADD | EV_RECEIPT | EV_CLEAR, .udata = ev_ctx};
+
+  if (ev_n == 0) { // Verify that there are events to add
+    errno = EINVAL;
+    return -1;
+  }
 
   // Add event to kqueue & return if error
   if ((r = kevent(queue_fd, events, ev_n, events, ev_n, &(struct timespec){0, 0})) == -1) return -1;
@@ -134,28 +225,31 @@ int reg_ev(int queue_fd, qevent_t* ev_ctx) {
   // Translate flags approprietly
   if (ev_ctx->filters & EVT_READ) filters |= EPOLLIN;
   if (ev_ctx->filters & EVT_WRITE) filters |= EPOLLOUT;
-  if (ev_ctx->filters & EVT_HUP) filters |= EPOLLRDHUP;
+  if (ev_ctx->filters & EVT_RDHUP) filters |= EPOLLRDHUP;
   if (ev_ctx->filters & EVT_USER) filters |= EPOLLIN;
+
+  if (ev_ctx->filters == 0) { // Verify that there are events to add
+    errno = EINVAL;
+    return -1;
+  }
 
   // Add event to epoll instance
   if (epoll_ctl(queue_fd, EPOLL_CTL_ADD, ev_ctx->ident, &(struct epoll_event){.events = filters, .data.ptr = ev_ctx}) == -1) return -1;
 
 #endif
+  ev_ctx->queue = queue_fd; // Register queue
   return 0;
 }
 
-int unreg_ev(int queue_fd, qevent_t* ev_ctx) {
-  bool empty_filt = ev_ctx->filters == 0;
-  bool unallowed_flags = (ev_ctx->filters & ~(ALLOWED_EVT_FLAGS)) != 0;
-  bool no_primary = !(ev_ctx->filters & (ALLOWED_EVT_FLAGS & ~EVT_HUP));
-  bool user_not_alone = !((ev_ctx->filters & EVT_USER) && !(ev_ctx->filters & (ALLOWED_EVT_FLAGS & ~EVT_USER)));
-  if (empty_filt || unallowed_flags || no_primary || user_not_alone) { // Invalid arge if any of those conditions are verified
-    errno = EINVAL;
+int unreg_ev(qevent_t* ev_ctx) {
+  if (ev_ctx->queue == -1) {
+    errno = ENOENT;
     return -1;
   }
 
 #if defined(NET_USE_KQUEUE)
   struct kevent events[3];
+
   int r, ev_n = 0;
   // Translate flags approprietly
   if (ev_ctx->filters & EVT_READ)
@@ -165,19 +259,26 @@ int unreg_ev(int queue_fd, qevent_t* ev_ctx) {
   if (ev_ctx->filters & EVT_USER)
     events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_USER, .flags = EV_DELETE | EV_RECEIPT, .udata = ev_ctx};
 
+  if (ev_n == 0) { // Verify that there are events to delete
+    errno = EINVAL;
+    return -1;
+  }
+
   // Add event to kqueue & return if error
-  if ((r = kevent(queue_fd, events, ev_n, events, ev_n, &(struct timespec){0, 0})) == -1) return -1;
+  if ((r = kevent(ev_ctx->queue, events, ev_n, events, ev_n, &(struct timespec){0, 0})) == -1) return -1;
 
   for (int n = 0; n < r; n++)
-    if ((int)events[n].data != 0 && (int)events[n].data != ENOENT) { // Check for error excluding ENOENT
+    if ((int)events[n].data != 0 && (int)events[n].data != ENOENT) {
       errno = (int)events[n].data;
       return -1;
     }
 
 #elif defined(NET_USE_EPOLL)
-  if (epoll_ctl(queue_fd, EPOLL_CTL_DEL, ev_ctx->ident, NULL) == -1) return -1;
+  if (epoll_ctl(ev_ctx->queue, EPOLL_CTL_DEL, ev_ctx->ident, NULL) == -1)
+    return -1;
 
 #endif
+  ev_ctx->queue = -1; // Unregister queue
   return 0;
 }
 
@@ -192,61 +293,72 @@ int handle_ev(int queue_fd, uint8_t max_events, struct timespec* timeout) {
   struct kevent events[max_events];
   if ((r = kevent(queue_fd, NULL, 0, events, max_events, timeout)) == -1) return -1;
 
-  for (int n = 0; n < r; n++) {
+  for (int n = 0; n < r; n++) { // For each event that has been detected
     struct kevent ev = events[n];
     qevent_t* ctx = ev.udata;
 
-    if (ev.filter == EVFILT_READ) // Read may receive 0 before HUP
-      ctx->handler(EVT_READ, (union qevdata){0}, ctx);
+    // If error code is set on EV_EOF or on EV_ERROR
+    if ((ev.flags & EV_EOF) && ev.fflags != 0 && !(ctx->flags & CTX_ERR)) {
+      ctx->flags |= CTX_ERR; // Add error flag
+      ctx->handler(EVT_ERROR, (union qevdata){.error = (int)ev.fflags}, ctx);
+    }
+    if ((ev.flags & EV_ERROR) && ev.data != 0 && !(ctx->flags & CTX_ERR)) {
+      ctx->flags |= CTX_ERR; // Add error flag
+      ctx->handler(EVT_ERROR, (union qevdata){.error = (int)ev.data}, ctx);
+      continue;
+    }
     if (ev.filter == EVFILT_USER)
       ctx->handler(EVT_USER, (union qevdata){0}, ctx);
+    // If RDHUP handling is set, don't deliver 0bytes read events
+    if (ev.filter == EVFILT_READ && !((ctx->filters & EVT_RDHUP) && ev.data <= 0))
+      ctx->handler(EVT_READ, (union qevdata){.count = ev.data}, ctx);
     if (ev.filter == EVFILT_WRITE)
       ctx->handler(EVT_WRITE, (union qevdata){0}, ctx);
-
-    // Handle EOF if event is read (parity, on epoll write cannot report read end closed)
-    if (ev.flags & EV_EOF && ev.filter == EVFILT_READ) {
-      if (ev.fflags != 0) ctx->handler(EVT_ERROR, (union qevdata){.error = (int)ev.fflags}, ctx); // Notify error if socket didn't HUP properly
-      if (ctx->filters & EVT_HUP) ctx->handler(EVT_HUP, (union qevdata){0}, ctx);                 // Notify HUP only if ctx subscribed
-    }
+    // Check EV_EOF flag only if EVT_RDHUP is set & ev is read
+    if (ev.flags & EV_EOF && ctx->filters & EVT_RDHUP && ev.filter == EVFILT_READ)
+      ctx->handler(EVT_RDHUP, (union qevdata){0}, ctx);
   }
 
 #elif defined(NET_USE_EPOLL)
   struct epoll_event events[max_events];
   if ((r = epoll_pwait2(queue_fd, events, max_events, timeout, NULL)) == -1) return -1;
 
-  for (int n = 0; n < r; n++) {
+  for (int n = 0; n < r; n++) { // For each event that has been detected
     struct epoll_event ev = events[n];
     qevent_t* ctx = ev.data.ptr;
 
-    if (ctx->filters & EVT_USER) {
-      if (ev.events & EPOLLIN) { // Notify event only if there's data to be read
+    if (ev.events & EPOLLERR) { // Check for socket error
+      ctx->flags |= CTX_ERR;    // Add error flag
+      int error_code = 0;
+      socklen_t len = sizeof(error_code);
+      getsockopt(ctx->ident, SOL_SOCKET, SO_ERROR, &error_code, &len);
+      ctx->handler(EVT_ERROR, (union qevdata){.error = error_code}, ctx);
+    }
+    if (ev.events & EPOLLIN) {       // If data avail to read
+      if (ctx->filters & EVT_USER) { // Switch case if it's user event
         uint64_t cnt;
         // Check + acknowledge event, if read successfull, call handler (equivalent as EV_CLEAR on kqueue)
-        if (read(ctx->ident, &cnt, sizeof(cnt)) > 0) ctx->handler(EVT_USER, (union qevdata){0}, ctx);
+        if (read(ctx->ident, &cnt, sizeof(cnt)) > 0)
+          ctx->handler(EVT_USER, (union qevdata){0}, ctx);
+      } else {
+        int count;
+        if (ioctl(ctx->ident, FIONREAD, &count) == -1)
+          ctx->handler(EVT_READ, (union qevdata){0}, ctx);
+        else if (count != 0 || !(ctx->filters & EVT_RDHUP))
+          ctx->handler(EVT_READ, (union qevdata){.count = count}, ctx);
       }
-      continue;
     }
-
-    if (ev.events & EPOLLIN) // Read may receive 0 before HUP
-      ctx->handler(EVT_READ, (union qevdata){0}, ctx);
-    if (ev.events & EPOLLOUT) // May not detect EPOLLHUP
+    if (ev.events & EPOLLOUT)
       ctx->handler(EVT_WRITE, (union qevdata){0}, ctx);
-
-    if (ev.events & EPOLLERR) { // Notify error if socket didn't HUP properly
-      union qevdata data = {0};
-      socklen_t len = sizeof(data.error);
-      getsockopt(ctx->ident, SOL_SOCKET, SO_ERROR, &data.error, &len);
-      ctx->handler(EVT_ERROR, data, ctx);
-    }
-    if (ev.events & (EPOLLRDHUP | EPOLLHUP) && ctx->filters & EVT_HUP) // Notify HUP only if ctx subscribed
-      ctx->handler(EVT_HUP, (union qevdata){0}, ctx);
+    if (ev.events & (EPOLLRDHUP | EPOLLHUP) && ctx->filters & EVT_RDHUP) // Notify HUP only if ctx subscribed
+      ctx->handler(EVT_RDHUP, (union qevdata){0}, ctx);
   }
 
 #endif
-  return r;
+  return r; // Return number of processed events
 }
 
-static inline int _set_flags(int fd, int mask) {
+static inline int set_sock_flags(int fd, int mask) {
   int socket_flags;
   if ((socket_flags = fcntl(fd, F_GETFL)) == -1)
     return -1;
@@ -255,6 +367,6 @@ static inline int _set_flags(int fd, int mask) {
   return 0;
 }
 
-static inline qevent_t* _alloc_ev_ctx() {
+static inline qevent_t* alloc_ev_ctx() {
   return malloc(sizeof(qevent_t));
 }
