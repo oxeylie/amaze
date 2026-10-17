@@ -8,10 +8,19 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include <misc.h>
 #include <stdio.h>
 #include <sys/errno.h>
 
-#ifdef __linux__
+#if defined(DEBUG_V) // Debug_Verbose functions
+#define DEBUG_LOGF(strf, ...) print_logf(strf __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ERRF(code, strf, ...) print_errf(code, strf __VA_OPT__(, ) __VA_ARGS__)
+#else
+#define DEBUG_LOGF(strf, ...)
+#define DEBUG_ERRF(code, strf, ...)
+#endif
+
+#if defined(__linux__)
 #define ELAST 133 // Max errno code on linux
 #endif
 #define ERR_COUNT (ECOUNT - ELAST)
@@ -31,11 +40,11 @@ extern FILE* error_file;
 extern FILE* log_file;
 
 // Prints log with formated message
-void print_logf(char* restrict msg_fmt, ...) __attribute__((nonnull));
+void print_logf(char* const restrict msg_fmt, ...) _printf_like(1, 2) _nonnull(1);
 // Prints error with formated message
-void print_errorf(err code, char* restrict err_fmt, ...) __attribute__((nonnull));
+void print_errorf(err code, const char* restrict err_fmt, ...) _printf_like(2, 3) _nonnull(2);
 // Prints & panic err with formated message
-void panic_errorf(err code, char* restrict err_fmt, ...) __attribute__((nonnull));
+void panic_errorf(err code, const char* restrict err_fmt, ...) _printf_like(2, 3) _nonnull(2);
 // Converts an integer error code to an error string
 const char* error_str(err code);
 

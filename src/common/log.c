@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
  * log.c
- * 
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -46,7 +46,7 @@ void print_logf(char* restrict msg_fmt, ...) {
   print_log(buf);
 }
 
-void print_errorf(err code, char* restrict err_fmt, ...) {
+void print_errorf(err code, const char* restrict err_fmt, ...) {
   va_list args;
   char buf[256];
 
@@ -57,7 +57,7 @@ void print_errorf(err code, char* restrict err_fmt, ...) {
   print_err(code, buf);
 }
 
-void panic_errorf(err code, char* restrict err_fmt, ...) {
+void panic_errorf(err code, const char* restrict err_fmt, ...) {
   va_list args;
   char buf[256];
 
@@ -90,7 +90,7 @@ static void print_err(err code, char* err_str) {
   if (code != 0) {
     char buf[256];
     snprintf(buf, sizeof(buf), "%s: %s", err_str, error_code_str(code)); // Translate code to human readable error
-    print_file(error_file == NULL ? stderr : error_file, "Error", buf); // Print in configured file
+    print_file(error_file == NULL ? stderr : error_file, "Error", buf);  // Print in configured file
   } else {
     print_file(error_file == NULL ? stderr : error_file, "Error", err_str); // Print in configured file
   }

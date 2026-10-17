@@ -1,6 +1,9 @@
 /**-----------------------------------------------------------------------*
  * event.c
  *
+ * Todo:
+ * - Make thread safe with atomic events
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -34,9 +37,9 @@ static const uint8_t allowed_EVT_flags = EVT_READ | EVT_WRITE | EVT_USER | EVT_R
 static int set_sock_flags(int fd, int mask);
 static qevent_t* alloc_ev_ctx();
 
-int init_listen_sock(int port, size_t max_clients) {
+int init_listen_sock(int port, size_t max_clients) { // Todo: change / delete implementation to allow for more modularity
   int sock_fd;
-  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) goto err_return; // Inits a TCP (ipv4) socket
+  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) goto err_return;                          // Inits a TCP (ipv4) socket
   if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) == -1) goto err_close; // Prevent interfering with socks in TIMEWAIT
   struct sockaddr_in sock_addr = {
       .sin_family = AF_INET,                // Set type to TCP
@@ -57,7 +60,7 @@ err_return:
   return -1;
 }
 
-int init_peer_sock(int port, long address) {
+int init_peer_sock(int port, long address) { // Todo: change / delete implementation to allow for more modularity
   int sock_fd;
   if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) goto err_return; // Inits a TCP (ipv4) socket
   struct sockaddr_in sock_addr = {
@@ -72,7 +75,7 @@ int init_peer_sock(int port, long address) {
 
 err_close:; // Error handling
   int errno_before = errno;
-  close(sock_fd);
+  close(sock_fd); // We don't care about close errors but they can overwrite errno
   errno = errno_before;
 err_return:
   return -1;
@@ -92,13 +95,13 @@ qevent_t* init_user_ev(evhandler_t handler, void* u_data) {
     }
 
   if (ident >= EV_ID_TBL_SLOTS) { // If not enough slots for user id
-    errno = ENOSPC;               // Send not enough space left
+    errno = ENOSPC;               // Not enough space
     goto err_return;
   }
 
 #elif defined(NET_USE_EPOLL)
   if ((ident = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) == -1) // Init with 0 in counter
-    return NULL;
+    goto err_return;
 
 #endif
   if ((sock_ctx = alloc_ev_ctx()) == NULL) goto err_close;
@@ -113,7 +116,7 @@ qevent_t* init_user_ev(evhandler_t handler, void* u_data) {
 
 err_close:
 #if defined(NET_USE_KQUEUE)
-  event_id_table[ident / 8] &= ~(1 << (ident % 8));
+  event_id_table[ident / 8] &= ~(1 << (ident % 8)); // Clear bit
 #elif defined(NET_USE_EPOLL)
   close(ident);
 #endif
@@ -123,35 +126,48 @@ err_return:
 
 int trigger_user_ev(qevent_t* ev_ctx) {
   if (ev_ctx->queue == -1) {
-    errno = ENOENT;
+    errno = ENOENT; // Event queue invalid
     return -1;
   }
 
 #if defined(NET_USE_KQUEUE)
-  return kevent(ev_ctx->queue,
-                &(struct kevent){
-                    .ident = ev_ctx->ident,
-                    .filter = EVFILT_USER,
-                    .flags = 0,
-                    .fflags = NOTE_TRIGGER,
-                    .udata = ev_ctx},
-                1, NULL, 0, NULL);
+  struct kevent* ev = &(struct kevent){
+      .ident = ev_ctx->ident,
+      .filter = EVFILT_USER,
+      .flags = 0,
+      .fflags = NOTE_TRIGGER,
+      .udata = ev_ctx,
+  };
+
+  if (kevent(ev_ctx->queue, ev, 1, NULL, 0, NULL) == -1) {
+    if (errno == EBADF) errno = ENOENT; // Queue is gone
+    return -1;
+  }
 
 #elif defined(NET_USE_EPOLL)
-  if (write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t)) == -1) return -1;
-  else return 0;
+  ssize_t n;
+  do
+    n = write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t));
+  while ((n == -1 && errno == EINTR) || (n < sizeof(uint64_t) && errno == EINVAL)); // Retry on interrupts & partial writes
+  if (n == -1) return -1;
 
 #endif
-}
+  return 0;
+};
 
 int free_user_ev(qevent_t* ev_ctx) {
+  if (ev_ctx->queue != -1) {
+    errno = EBUSY;
+    return -1;
+  }
+
 #if defined(NET_USE_KQUEUE)
   event_id_table[ev_ctx->ident / 8] &= ~(1 << (ev_ctx->ident % 8)); // Mark ident as free on table
   free(ev_ctx);                                                     // Free context object
 
 #elif defined(NET_USE_EPOLL)
-  if (close(ev_ctx->ident) == -1) return -1; // Close eventfd
-  free(ev_ctx);                              // Free context object
+  close(ev_ctx->ident); // We don't care about close error since the fd is closed either way
+  free(ev_ctx);         // Free context object
 
 #endif
   return 0;
@@ -178,9 +194,14 @@ qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_dat
   return sock_ctx;
 }
 
-void free_sock_ev(qevent_t* sock_ctx) {
+int free_sock_ev(qevent_t* sock_ctx) {
+  if (sock_ctx->queue != -1) {
+    errno = EBUSY;
+    return -1;
+  }
+
   free(sock_ctx);
-  return;
+  return 0;
 }
 
 int init_ev_queue() {
@@ -195,9 +216,15 @@ int init_ev_queue() {
 }
 
 int reg_ev(int queue_fd, qevent_t* ev_ctx) {
+  if (ev_ctx->queue != -1) {
+    errno = EEXIST;
+    return -1;
+  }
+
 #if defined(NET_USE_KQUEUE)
-  struct kevent events[3];
-  int r, ev_n = 0;
+  struct kevent events[3], receipts[3];
+  int ev_n = 0, rcp_n = 0, err_n = 0, prev_errno;
+
   // Translate flags approprietly
   if (ev_ctx->filters & EVT_READ)
     events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_READ, .flags = EV_ADD | EV_RECEIPT, .udata = ev_ctx};
@@ -211,78 +238,116 @@ int reg_ev(int queue_fd, qevent_t* ev_ctx) {
     return -1;
   }
 
-  // Add event to kqueue & return if error
-  if ((r = kevent(queue_fd, events, ev_n, events, ev_n, &(struct timespec){0, 0})) == -1) return -1;
+  // In case of error on the queue itself
+  if ((rcp_n = kevent(queue_fd, events, ev_n, receipts, ev_n, &(struct timespec){0, 0})) == -1) {
+    if (errno == EBADF) errno = ENOENT; // Queue is gone
+    return -1;
+  }
 
-  for (int n = 0; n < r; n++)
-    if ((int)events[n].data != 0) { // Check for error
-      errno = (int)events[n].data;
-      return -1;
-    }
+  ev_n = 0;                       // Reset ev_n and use as undo counter
+  for (int n = 0; n < rcp_n; n++) // Check receipts for errors
+    if (receipts[n].data != 0) {  // If error
+      prev_errno = receipts[n].data;
+      err_n++;
+    } else // If socket didn't have any error, mark for potential undo
+      events[ev_n++] = (struct kevent){
+          .ident = receipts[n].ident,
+          .filter = receipts[n].filter,
+          .flags = EV_DELETE | EV_RECEIPT,
+          .udata = ev_ctx,
+      };
+
+  if (err_n > 0) {
+    kevent(queue_fd, events, ev_n, events, ev_n, &(struct timespec){0, 0}); // Undo all events
+    errno = prev_errno;
+    return -1;
+  }
 
 #elif defined(NET_USE_EPOLL)
   uint32_t filters = 0;
+
   // Translate flags approprietly
   if (ev_ctx->filters & EVT_READ) filters |= EPOLLIN;
   if (ev_ctx->filters & EVT_WRITE) filters |= EPOLLOUT;
   if (ev_ctx->filters & EVT_RDHUP) filters |= EPOLLRDHUP;
   if (ev_ctx->filters & EVT_USER) filters |= EPOLLIN;
 
-  if (ev_ctx->filters == 0) { // Verify that there are events to add
+  if (filters == 0) { // Verify that there are events to add
     errno = EINVAL;
     return -1;
   }
 
-  // Add event to epoll instance
-  if (epoll_ctl(queue_fd, EPOLL_CTL_ADD, ev_ctx->ident, &(struct epoll_event){.events = filters, .data.ptr = ev_ctx}) == -1) return -1;
-
+  if (epoll_ctl(queue_fd, EPOLL_CTL_ADD, ev_ctx->ident,                                         // Add event to epoll instance
+                &(struct epoll_event){.events = filters, .data.ptr = ev_ctx}) == -1) return -1; // On error return -1
 #endif
+
   ev_ctx->queue = queue_fd; // Register queue
   return 0;
 }
 
 int unreg_ev(qevent_t* ev_ctx) {
   if (ev_ctx->queue == -1) {
-    errno = ENOENT;
+    errno = ENOENT; // Event queue invalid
     return -1;
   }
 
 #if defined(NET_USE_KQUEUE)
-  struct kevent events[3];
+  struct kevent events[3], receipts[3];
+  int ev_n = 0, rcp_n = 0, err_n = 0, prev_errno;
 
-  int r, ev_n = 0;
   // Translate flags approprietly
   if (ev_ctx->filters & EVT_READ)
-    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_READ, .flags = EV_DELETE | EV_RECEIPT, .udata = ev_ctx};
+    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_READ, .flags = EV_DELETE | EV_RECEIPT};
   if (ev_ctx->filters & EVT_WRITE)
-    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_WRITE, .flags = EV_DELETE | EV_RECEIPT, .udata = ev_ctx};
+    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_WRITE, .flags = EV_DELETE | EV_RECEIPT};
   if (ev_ctx->filters & EVT_USER)
-    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_USER, .flags = EV_DELETE | EV_RECEIPT, .udata = ev_ctx};
+    events[ev_n++] = (struct kevent){.ident = ev_ctx->ident, .filter = EVFILT_USER, .flags = EV_DELETE | EV_RECEIPT};
 
-  if (ev_n == 0) { // Verify that there are events to delete
-    errno = EINVAL;
+  if (ev_n == 0) {  // Verify that there are events to delete
+    errno = EINVAL; // Event context invalid
     return -1;
   }
 
-  // Add event to kqueue & return if error
-  if ((r = kevent(ev_ctx->queue, events, ev_n, events, ev_n, &(struct timespec){0, 0})) == -1) return -1;
+  // In case of error on the queue itself
+  if ((rcp_n = kevent(ev_ctx->queue, events, ev_n, receipts, ev_n, &(struct timespec){0, 0})) == -1) {
+    if (errno == EBADF) errno = ENOENT; // Queue is gone
+    return -1;
+  }
 
-  for (int n = 0; n < r; n++)
-    if ((int)events[n].data != 0 && (int)events[n].data != ENOENT) {
-      errno = (int)events[n].data;
-      return -1;
-    }
+  ev_n = 0;                                                                                 // Reset ev_n and use as undo counter
+  for (int n = 0; n < rcp_n; n++)                                                           // Check receipts for errors
+    if (receipts[n].data != 0 && receipts[n].data != ENOENT && receipts[n].data != EBADF) { // If error different from event not registered
+      prev_errno = receipts[n].data;
+      err_n++;
+    } else if (receipts[n].data == 0) // If socket was deleted, mark for potential undo
+      events[ev_n++] = (struct kevent){
+          .ident = receipts[n].ident,
+          .filter = receipts[n].filter,
+          .flags = EV_ADD | EV_RECEIPT | (receipts[n].filter == EVFILT_USER ? EV_CLEAR : 0),
+          .udata = ev_ctx,
+      };
+
+  if (err_n > 0) {
+    kevent(ev_ctx->queue, events, ev_n, events, ev_n, &(struct timespec){0, 0}); // Undo all events
+    errno = prev_errno;
+    return -1;
+  }
 
 #elif defined(NET_USE_EPOLL)
-  if (epoll_ctl(ev_ctx->queue, EPOLL_CTL_DEL, ev_ctx->ident, NULL) == -1)
+  if (epoll_ctl(ev_ctx->queue, EPOLL_CTL_DEL, ev_ctx->ident, NULL) == -1 && errno != ENOENT) { // Error different from event not registered
+    int prev_errno = errno;
+    if (prev_errno == EBADF && fcntl(ev_ctx->queue, F_GETFD) == -1) // Verify that queue still exists
+      prev_errno = ENOENT;                                          // Queue is gone
+    errno = prev_errno;
     return -1;
+  }
 
 #endif
   ev_ctx->queue = -1; // Unregister queue
   return 0;
 }
 
-int handle_ev(int queue_fd, uint8_t max_events, struct timespec* timeout) {
+int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout) {
   if (max_events == 0) {
     errno = EINVAL;
     return -1;

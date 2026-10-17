@@ -8,6 +8,8 @@
 #ifndef NET_SOCK_H
 #define NET_SOCK_H
 
+#include <misc.h>
+
 #include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -46,7 +48,7 @@ typedef struct evcontext qevent_t;
 // - ev_type holds what type of event triggered the handle
 // - ev_data holds additionnal data depending on event type
 // - ev_ctx holds the additionnal context associated to the event
-typedef void (*evhandler_t)(enum qevtype ev_type, union qevdata ev_data, qevent_t* ev_ctx) __attribute__((nonnull(3)));
+typedef void (*evhandler_t)(enum qevtype ev_type, union qevdata ev_data, qevent_t* ev_ctx) _nonnull(3);
 
 // Context associated to a queue event
 struct evcontext {
@@ -73,43 +75,43 @@ int init_peer_sock(int port, long address);
 // - handler contains the handler function associated with the event
 // - u_data contains arbitrary user data associated with the event
 // - [return] ptr if successfull NULL if failed + errno set
-qevent_t* init_user_ev(evhandler_t handler, void* u_data) __attribute__((nonnull(1)));
+_use_res qevent_t* init_user_ev(evhandler_t handler, void* u_data) _nonnull(1);
 // Triggers a user event
 // - ev_ctx contains the event to trigger
 // - [return] 0 if successfull -1 if failed + errno set
-int trigger_user_ev(qevent_t* ev_ctx) __attribute__((nonnull));
+int trigger_user_ev(qevent_t* ev_ctx) _nonnull();
 // Frees an event
 // - ev_ctx contains the event to free
 // - [return] 0 if successfull -1 if failed + errno set
-int free_user_ev(qevent_t* ev_ctx) __attribute__((nonnull));
+int free_user_ev(qevent_t* ev_ctx) _nonnull();
 
 // Inits an event associated to a socket
 // - fd contains the associated file descriptor
 // - handler contains the handler function associated with the event
 // - filters contains the OR'd filters that should trigger the event
 // - u_data contains arbitrary user data associated with the event
-qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_data) __attribute__((nonnull(2)));
+_use_res qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_data) _nonnull(2);
 // Frees an event associated to a socket
 // - sock_ctx contains the event to be freed
-void free_sock_ev(qevent_t* sock_ctx) __attribute__((nonnull));
+int free_sock_ev(qevent_t* sock_ctx) _nonnull();
 
 // Inits an event queue
 // - [return] file descriptor of event queue if successfull -1 if failed + errno set
-int init_ev_queue();
+_use_res int init_ev_queue();
 // Registers an event to a queue
 // - queue_fd contains the file descriptor of the target queue
 // - ev_ctx contains the event to be registered in the queue
 // - [return] 0 if successfull -1 if failed + errno set
-int reg_ev(int queue_fd, qevent_t* ev_ctx) __attribute__((nonnull(2)));
+int reg_ev(int queue_fd, qevent_t* ev_ctx) _nonnull(2);
 // Unregisters the event from its queue
 // - ev_ctx contains the event to be unregistered of the queue
 // - [return] 0 if successfull -1 if failed + errno set
-int unreg_ev(qevent_t* ev_ctx) __attribute__((nonnull));
+int unreg_ev(qevent_t* ev_ctx) _nonnull();
 // Handle triggered events in the queue
 // - queue_fd contains the file descriptor of the target queue
 // - max_events contains the maximum number of allowed events to be handled
 // - timeout contains the maximum duration for which the handle will wait for events to happen
 // - [return] 0 if successfull -1 if failed + errno set
-int handle_ev(int queue_fd, uint8_t max_events, struct timespec* timeout);
+int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout);
 
 #endif // NET_SOCK_H

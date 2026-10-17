@@ -8,34 +8,27 @@
 #include <log.h>
 #include <misc.h>
 #include <network/event.h>
+#include <network/protocol.h>
 
+#include <arpa/inet.h>
+#include <errno.h>
 #include <pthread.h>
-
-void* network_thread_init(void* arg);
-void* terrain_thread_init(void* arg);
+#include <sys/socket.h>
 
 const struct arg_def argl[] = {};
-pthread_t network_thread;
-pthread_t terrain_thread;
+void handler(enum qevtype type, union qevdata data, qevent_t* ev_ctx) {};
 
 int main(int argc, char** argv) {
   eval_args(argv, argc, argl, sizeof(argl) / sizeof(const struct arg_def));
 
-  pthread_create(&network_thread, NULL, network_thread_init, NULL);
-  pthread_create(&terrain_thread, NULL, terrain_thread_init, NULL);
-  print_logf("logic_thread");
+  // Test
+  int sock, queue;
+  qevent_t* event;
+  if ((sock = init_peer_sock(ACP_DEFAULT_PORT, INADDR_LOOPBACK)) == -1) panic_errorf(errno, "Couldn't create socket");
+  if ((queue = init_ev_queue()) == -1) panic_errorf(errno, "Couldn't create queue");
+  if ((event = init_sock_ev(sock, handler, EVT_READ | EVT_RDHUP, NULL)) == NULL) panic_errorf(errno, "Creating event context");
+  if (reg_ev(queue, event)) panic_errorf(errno, "Adding event to queue");
+  if (handle_ev(queue, 10, NULL) == -1) panic_errorf(errno, "Handling events");
 
-  pthread_join(network_thread, NULL); // Wait for thread termination
-  pthread_join(terrain_thread, NULL); // Wait for thread termination
   return 0;
 }
-
-void* network_thread_init(void* arg) {
-  print_logf("network_thread");
-  return NULL;
-};
-
-void* terrain_thread_init(void* arg) {
-  print_logf("render_thread");
-  return NULL;
-};

@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
  * misc.c
- * 
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -18,7 +19,7 @@
 
 void eval_args(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc) {
   for (size_t arg_idx = 1; arg_idx < argc; arg_idx++) { // Start at i = 1 because we don't care about path
-    const struct arg_def* match_arg;
+    const struct arg_def* match_arg = NULL;
     char* name_arg = argv[arg_idx];
     bool match = false;
 
@@ -35,7 +36,7 @@ void eval_args(char** argv, size_t argc, const struct arg_def* arglv, size_t arg
 
     int offset;
 
-    offset = match_arg->func(argv + arg_idx + 1, argc - arg_idx - 1);     // Execute associated function and pass all args after arg_name
+    offset = match_arg->func(argv + arg_idx + 1, argc - arg_idx - 1);      // Execute associated function and pass all args after arg_name
     if (offset == -1) panic_errorf(errno, "Parsing arg \"%s\"", name_arg); // Return if error
 
     arg_idx += offset;
