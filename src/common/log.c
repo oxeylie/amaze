@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
- * log.c
- *
+ * src/common/log.c
+ * 
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -69,7 +69,7 @@ void panic_errorf(err code, const char* restrict err_fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
-char* error_code_str(err code) {
+const char* error_str(err code) {
   if (code > 0 && code <= ELAST) // Code is errno
     return strerror(code);
   else if (code > ELAST && code < ECOUNT) // Code is custom
@@ -89,8 +89,8 @@ static void print_log(char* log_str) {
 static void print_err(err code, char* err_str) {
   if (code != 0) {
     char buf[256];
-    snprintf(buf, sizeof(buf), "%s: %s", err_str, error_code_str(code)); // Translate code to human readable error
-    print_file(error_file == NULL ? stderr : error_file, "Error", buf);  // Print in configured file
+    snprintf(buf, sizeof(buf), "%s: %s", err_str, error_str(code));     // Translate code to human readable error
+    print_file(error_file == NULL ? stderr : error_file, "Error", buf); // Print in configured file
   } else {
     print_file(error_file == NULL ? stderr : error_file, "Error", err_str); // Print in configured file
   }

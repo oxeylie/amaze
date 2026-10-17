@@ -1,17 +1,17 @@
 /**-----------------------------------------------------------------------*
- * main.c
- *
+ * src/server/main.c
+ * 
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
-#include "network/protocol.h"
+#include <network/protocol.h>
 #include <log.h>
 #include <misc.h>
 #include <network/event.h>
 
 #include <sys/socket.h>
-void handler(enum qevtype type, union qevdata data, qevent_t* ev_ctx) {
+void handler([[maybe_unused]] enum qevtype type, [[maybe_unused]] union qevdata data, [[maybe_unused]] qevent_t* ev_ctx) {
   print_logf("Received connection request");
 };
 

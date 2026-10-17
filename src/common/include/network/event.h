@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
- * event.h
- *
+ * src/common/include/network/event.h
+ * 
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
