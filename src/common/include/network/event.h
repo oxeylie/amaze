@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
  * src/common/include/network/event.h
- * 
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -75,7 +75,7 @@ int init_peer_sock(int port, long address);
 // - handler contains the handler function associated with the event
 // - u_data contains arbitrary user data associated with the event
 // - [return] ptr if successfull NULL if failed + errno set
-_use_res qevent_t* init_user_ev(evhandler_t handler, void* u_data) _nonnull(1);
+[[nodiscard]] qevent_t* init_user_ev(evhandler_t handler, void* u_data) _nonnull(1);
 // Triggers a user event
 // - ev_ctx contains the event to trigger
 // - [return] 0 if successfull -1 if failed + errno set
@@ -90,14 +90,14 @@ int free_user_ev(qevent_t* ev_ctx) _nonnull();
 // - handler contains the handler function associated with the event
 // - filters contains the OR'd filters that should trigger the event
 // - u_data contains arbitrary user data associated with the event
-_use_res qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_data) _nonnull(2);
+[[nodiscard]] qevent_t* init_sock_ev(int fd, evhandler_t handler, int16_t filters, void* u_data) _nonnull(2);
 // Frees an event associated to a socket
 // - sock_ctx contains the event to be freed
 int free_sock_ev(qevent_t* sock_ctx) _nonnull();
 
 // Inits an event queue
 // - [return] file descriptor of event queue if successfull -1 if failed + errno set
-_use_res int init_ev_queue();
+[[nodiscard]] int init_ev_queue();
 // Registers an event to a queue
 // - queue_fd contains the file descriptor of the target queue
 // - ev_ctx contains the event to be registered in the queue

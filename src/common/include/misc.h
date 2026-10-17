@@ -15,7 +15,6 @@
 
 #define _printf_like(fmt, va) __attribute__((format(printf, fmt, va)))
 #define _nonnull(...) __attribute__((nonnull __VA_OPT__((__VA_ARGS__))))
-#define _use_res [[nodiscard]]
 
 // Argument function pointer
 typedef size_t (*arg_func_t)(char** argv, size_t argc);
