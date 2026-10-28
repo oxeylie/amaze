@@ -1,4 +1,7 @@
 { pkgs, ... }:
+##
+# [Todo] setup cross compile, with fixed dynamic linking.
+##
 let
   buildTarget =
     { name, target }:
