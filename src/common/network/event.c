@@ -1,8 +1,11 @@
 /**-----------------------------------------------------------------------*
- * event.c
+ * src/common/network/event.c
  *
  * Todo:
- * - Make thread safe with atomic events
+ * - Make thread safe
+ * - Add free_queue
+ * - Remove socket creation functions
+ * - Implement delayed unregistration
  *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later

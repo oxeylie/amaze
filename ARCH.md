@@ -10,13 +10,13 @@ Game architecure planning
  - Network (handles ATP stream, start/terminate connection, receive/sends state updates)
  - Sound (handles sound playback)
  - Rendering (handles display, orchestrate (load balance) workers to compute graphics)
-   - Workers 1..x (graphic computation)
+   - Workers 1..x (graphic computation) | Maybe GPU instead
 
 **Thread communication**:
  - Logic -> Network:     updates + disconnects `queue mutex`     + `queue wake (EVFILT_USER/eventfd)`
- - Network -> Logic:     updates + disconnects `queue mutex`     + `mutex condition`
+ - Network -> Logic:     updates + disconnects `queue mutex`
  - Logic -> Rendering:   loaded state/terrain  `hasmap + structs mutex`
- - Rendering <-> Worker: screen buffer         `2d array mutexs` + `mutex condition`
+ - (Rendering <-> Worker: screen buffer        `2d array mutexs`)
  - Logic -> Sound:       playback requests     `queue mutex`
 
 ### Headers
@@ -45,11 +45,11 @@ Game architecure planning
 
 **Thread communication**:
  - Logic -> Network:   updates + disconnects `queue mutex`   + `queue wake (EVFILT_USER/eventfd)`
- - Network -> Logic:   updates + disconnects `queue mutex`   + `mutex condition`
- - Logic -> Terrain:   save/load requests    `queue mutex`   + `mutex condition`
- - Terrain -> Logic:   load state            `queue mutex`   + `mutex condition` 
- - Terrain <-> Worker: terrain gen           `struct mutexs` + `mutex condition`
- - Terrain <-> Logic:  loaded terrain        `hashmap mutex` + `atomic writes` 
+ - Network -> Logic:   updates + disconnects `queue mutex`
+ - Logic -> Terrain:   save/load requests    `queue mutex`
+ - Terrain -> Logic:   load state            `queue mutex`
+ - Terrain <-> Worker: terrain gen           `struct mutexs`
+ - Terrain <-> Logic:  loaded terrain        `hashmap mutex` + `atomic writes`
 
 ### Headers
 

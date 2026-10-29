@@ -1,6 +1,9 @@
 /**-----------------------------------------------------------------------*
  * src/tests/common/main.c
  *
+ * Todo:
+ * - Make better tests
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
