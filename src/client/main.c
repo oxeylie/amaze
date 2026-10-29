@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -22,22 +23,19 @@ bool stop;
 int count;
 
 void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* ev_ctx) {
-  char* str;
+  char str[64];
   switch (type) {
-  case EVT_READ:
-    str = "EVT_READ";
+  case EVT_READ:;
+    memcpy("EVT_READ", str, 9);
     break;
   case EVT_ERROR:;
-    char buf[64];
-    str = buf;
     sprintf(str, "EVT_ERROR: %s", error_str(data.error));
     break;
   case EVT_RDHUP:
-    stop = true;
-    str = "EVT_RDHUP";
+    memcpy("EVT_RDHUP", str, 10);
     break;
   default:
-    str = "Other";
+    memcpy("Other", str, 6);
     break;
   }
   print_logf("Event type: %s, data: %ld", str, data.count);

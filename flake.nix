@@ -8,24 +8,54 @@
   outputs =
     { nixpkgs, ... }:
     let
-      forAllSystems =
-        subset:
-        (nixpkgs.lib.genAttrs [
-          "aarch64-darwin"
-          "x86_64-darwin"
-          "aarch64-linux"
-          "x86_64-linux"
-        ])
-          (
-            system:
-            let
-              pkgs = import nixpkgs { inherit system; };
-            in
-            subset { inherit system pkgs; }
-          );
+      hosts = [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
+
+      targets = [
+        "x86_64-linux-gnu.2.31"
+        "aarch64-linux-gnu.2.31"
+        # Static linking is not supported yet
+        # "x86_64-linux-musl"
+        # "aarch64-linux-musl"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+
+      forTargets = nixpkgs.lib.genAttrs [
+        "gnu64"
+        "aarch64-multiplatform"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
+      forHosts = nixpkgs.lib.genAttrs hosts;
     in
     {
-      packages = forAllSystems ({ pkgs, system }: (import ./package.nix { inherit system pkgs; }));
-      devShells = forAllSystems ({ pkgs, system }: (import ./shell.nix { inherit system pkgs; }));
+      devShells = forHosts (system: import ./shell.nix { pkgs = import nixpkgs { inherit system; }; });
+      packages = forHosts (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        import ./package.nix { inherit pkgs; }
+        // rec {
+          cross-dynamic = forTargets (
+            cross-system:
+            import ./package.nix {
+              pkgs = pkgs.pkgsCross.${cross-system};
+              build = "dynamic";
+            }
+          );
+          cross-mixed = {
+            x86_64-aarch64-darwin = import ./package.nix {
+              inherit pkgs;
+              build = "mixed";
+              cross-pkgs = { inherit cross-dynamic; };
+            };
+          };
+        }
+      );
     };
 }

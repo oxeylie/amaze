@@ -5,15 +5,16 @@
  # SPDX-License-Identifier: AGPL-3.0-or-later
  #------------------------------------------------------------------------#
 
-CC        := $(if $(filter Darwin,$(shell uname -s)),clang,gcc)
+CC        := $(if $(and $(CC),$(filter $(origin CC),environment)),$(CC),$(if $(filter Darwin,$(shell uname -s)),clang,gcc))
 ODIR      := ./build
 OUTDIR    := ./out
 BASEDIR   := ./src
 TESTDIR   := $(BASEDIR)/tests
 
-FLAGS     := -std=gnu23 -Wall -Wextra
-CC_FLAGS  := $(FLAGS) -MMD -MP
-LD_FLAGS  := $(FLAGS) 
+EXTRA_FLAGS :=
+FLAGS       := -std=gnu23 -Wall -Wextra $(EXTRA_FLAGS)
+CC_FLAGS    := $(FLAGS) -MMD -MP
+LD_FLAGS    := -lncurses $(FLAGS) 
 
 # $(1) = name, $(2) = source, $(3) = build specific flags, $(4) = extra objs, $(5) = build target
 define BUILD_TEMPLATE
@@ -68,5 +69,4 @@ $(eval $(call BUILD_TEMPLATE,server_test,$(TESTDIR)/server,\
 	-I$(common_INCDIR) -I$(server_INCDIR),$(common_OBJ) $(filter-out $(ODIR)/server/main.o,$(server_OBJ)),server-test)) # test
 
 clean: 
-	rm -rf $(ODIR) $(OUTDIR)
-
+	rm -rf $(ODIR)
