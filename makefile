@@ -69,4 +69,4 @@ $(eval $(call BUILD_TEMPLATE,server_test,$(TESTDIR)/server,\
 	-I$(common_INCDIR) -I$(server_INCDIR),$(common_OBJ) $(filter-out $(ODIR)/server/main.o,$(server_OBJ)),server-test)) # test
 
 clean: 
-	rm -rf $(ODIR)
+	rm -rf $(ODIR) $(OUTDIR)

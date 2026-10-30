@@ -14,22 +14,20 @@
         "x86_64-linux"
       ];
 
-      targets = [
+      linux-targets = [
         "x86_64-linux-gnu.2.31"
         "aarch64-linux-gnu.2.31"
         # Static linking is not supported yet
         # "x86_64-linux-musl"
         # "aarch64-linux-musl"
+      ];
+
+      darwin-targets = [
         "x86_64-darwin"
         "aarch64-darwin"
       ];
 
-      forTargets = nixpkgs.lib.genAttrs [
-        "gnu64"
-        "aarch64-multiplatform"
-        "aarch64-darwin"
-        "x86_64-darwin"
-      ];
+      forTargets = nixpkgs.lib.genAttrs (linux-targets ++ darwin-targets);
       forHosts = nixpkgs.lib.genAttrs hosts;
     in
     {
@@ -38,23 +36,17 @@
         system:
         let
           pkgs = import nixpkgs { inherit system; };
-        in
-        import ./package.nix { inherit pkgs; }
-        // rec {
-          cross-dynamic = forTargets (
-            cross-system:
-            import ./package.nix {
-              pkgs = pkgs.pkgsCross.${cross-system};
-              build = "dynamic";
-            }
-          );
-          cross-mixed = {
-            x86_64-aarch64-darwin = import ./package.nix {
-              inherit pkgs;
-              build = "mixed";
-              cross-pkgs = { inherit cross-dynamic; };
-            };
+          p = import ./package.nix { inherit pkgs; };
+          host-pkgs = p.pkgsForTarget "host";
+          cross-pkgs = forTargets (target: p.pkgsForTarget target);
+          combined-pkgs = {
+            x86_64-aarch64-darwin = p.combineTargets darwin-targets cross-pkgs;
           };
+        in
+        host-pkgs
+        // {
+          default = host-pkgs.amaze;
+          cross = cross-pkgs // combined-pkgs;
         }
       );
     };
