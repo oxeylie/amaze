@@ -151,7 +151,7 @@ int trigger_user_ev(qevent_t* ev_ctx) {
   ssize_t n;
   do
     n = write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t));
-  while ((n == -1 && errno == EINTR) || (n < sizeof(uint64_t) && errno == EINVAL)); // Retry on interrupts & partial writes
+  while ((n == -1 && errno == EINTR) || (n < (ssize_t)sizeof(uint64_t) && errno == EINVAL)); // Retry on interrupts & partial writes
   if (n == -1) return -1;
 
 #endif
@@ -389,7 +389,7 @@ int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout) 
 
 #elif defined(NET_USE_EPOLL)
   struct epoll_event events[max_events];
-  int ms_timeout = timeout != NULL ? timespec_to_ns(*timeout) / (uint64_t)1000000 : -1;
+  int ms_timeout = timeout != NULL ? (int)(timespec_to_ns(*timeout) / (uint64_t)1000000) : -1;
   if ((r = epoll_pwait(queue_fd, events, max_events, ms_timeout, NULL)) == -1) return -1;
 
   for (int n = 0; n < r; n++) { // For each event that has been detected

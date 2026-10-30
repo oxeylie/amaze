@@ -42,7 +42,10 @@ void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* e
   if (!(type == EVT_READ && data.count > 0)) return;
 
   char buf[64];
-  read(ev_ctx->ident, buf, sizeof(buf));
+  if (read(ev_ctx->ident, buf, sizeof(buf)) == -1) {
+    print_errorf(errno, "Reading socket"); 
+    return;
+  }
   print_logf("Read: %s", buf);
 };
 
