@@ -389,7 +389,7 @@ int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout) 
 
 #elif defined(NET_USE_EPOLL)
   struct epoll_event events[max_events];
-  int ms_timeout = timeout != NULL ? timespec_to_ns(*timeout) / (uint64_t)1000000 : 0;
+  int ms_timeout = timeout != NULL ? timespec_to_ns(*timeout) / (uint64_t)1000000 : -1;
   if ((r = epoll_pwait(queue_fd, events, max_events, ms_timeout, NULL)) == -1) return -1;
 
   for (int n = 0; n < r; n++) { // For each event that has been detected
