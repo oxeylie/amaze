@@ -154,6 +154,7 @@ let
       }
       // mkMeta name version
     );
+
   combinePkgs =
     {
       name,
@@ -181,12 +182,46 @@ let
       }
       // mkMeta name version
     );
+
+  groupPkgs =
+    { name, target-pkgs }:
+    pkgs.stdenv.mkDerivation (
+      {
+        pname = "${name}-group";
+        dontUnpack = true;
+        dontBuild = true;
+        dontFixup = true;
+
+        installPhase = ''
+          mkdir -p $out/bin
+          ${lib.concatMapStringsSep "\n" (
+            p: "cp ${p.path}/bin/${name} $out/bin/${name}-${safeName p.target}"
+          ) target-pkgs}
+        '';
+      }
+      // mkMeta name version
+    );
 in
 {
   combineTargets =
     target-hosts: cross-pkgs:
     lib.mapAttrs (name: target-pkgs: combinePkgs { inherit name target-pkgs target-hosts; }) (
       lib.zipAttrs (map (t: cross-pkgs.${t}) target-hosts)
+    );
+
+  groupTargets =
+    target-hosts: cross-pkgs:
+    let
+      tagged-pkgs = map (
+        t:
+        lib.mapAttrs (_: path: {
+          target = t;
+          inherit path;
+        }) cross-pkgs.${t}
+      ) target-hosts;
+    in
+    lib.mapAttrs (name: target-pkgs: groupPkgs { inherit name target-pkgs; }) (
+      lib.zipAttrs tagged-pkgs
     );
 
   pkgsForTarget = target: {

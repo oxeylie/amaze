@@ -17,9 +17,8 @@
       linux-targets = [
         "x86_64-linux-gnu.2.31"
         "aarch64-linux-gnu.2.31"
-        # Static linking is not supported yet
-        # "x86_64-linux-musl"
-        # "aarch64-linux-musl"
+        "x86_64-linux-musl"
+        "aarch64-linux-musl"
       ];
 
       darwin-targets = [
@@ -27,12 +26,14 @@
         "aarch64-darwin"
       ];
 
-      forTargets = nixpkgs.lib.genAttrs (linux-targets ++ darwin-targets);
+      all-targets = (linux-targets ++ darwin-targets);
+
+      forTargets = nixpkgs.lib.genAttrs all-targets;
       forHosts = nixpkgs.lib.genAttrs hosts;
     in
     {
       devShells = forHosts (system: import ./shell.nix { pkgs = import nixpkgs { inherit system; }; });
-      packages = forHosts (
+      legacyPackages = forHosts (
         system:
         let
           pkgs = import nixpkgs { inherit system; };
@@ -44,9 +45,10 @@
           };
         in
         host-pkgs
-        // {
+        // rec {
           default = host-pkgs.amaze;
           cross = cross-pkgs // combined-pkgs;
+          group = p.groupTargets (builtins.attrNames cross) cross;
         }
       );
     };

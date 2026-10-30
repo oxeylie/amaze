@@ -151,8 +151,8 @@ int trigger_user_ev(qevent_t* ev_ctx) {
   ssize_t n;
   do
     n = write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t));
-  while ((n == -1 && errno == EINTR) || (n < (ssize_t)sizeof(uint64_t) && errno == EINVAL)); // Retry on interrupts & partial writes
-  if (n == -1) return -1;
+  while (n == -1 && errno == EINTR) ; // Retry on interrupts
+  if (n != (ssize_t)sizeof(uint64_t)) return -1;
 
 #endif
   return 0;
