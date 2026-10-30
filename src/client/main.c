@@ -26,16 +26,16 @@ void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* e
   char str[64];
   switch (type) {
   case EVT_READ:;
-    memcpy("EVT_READ", str, 9);
+    memcpy(str, "EVT_READ", 9);
     break;
   case EVT_ERROR:;
     sprintf(str, "EVT_ERROR: %s", error_str(data.error));
     break;
   case EVT_RDHUP:
-    memcpy("EVT_RDHUP", str, 10);
+    memcpy(str, "EVT_RDHUP", 10);
     break;
   default:
-    memcpy("Other", str, 6);
+    memcpy(str, "Other", 6);
     break;
   }
   print_logf("Event type: %s, data: %ld", str, data.count);
