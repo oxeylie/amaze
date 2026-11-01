@@ -11,6 +11,7 @@
 #include <network/protocol.h>
 
 #include <arpa/inet.h>
+#include <curses.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -43,7 +44,7 @@ void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* e
 
   char buf[64];
   if (read(ev_ctx->ident, buf, sizeof(buf)) == -1) {
-    print_errorf(errno, "Reading socket"); 
+    print_errorf(errno, "Reading socket");
     return;
   }
   print_logf("Read: %s", buf);
@@ -52,8 +53,9 @@ void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* e
 int main(int argc, char** argv) {
   DEBUG_LOGF("Debug enabled");
   eval_args(argv, argc, argl, sizeof(argl) / sizeof(const struct arg_def));
+  print_logf("Amaze version: %s", V_STR);
+  print_logf("ncurse version: %s", curses_version());
 
-  // Test
   int sock, queue;
   qevent_t* event;
   if ((sock = init_peer_sock(ACP_DEFAULT_PORT, INADDR_LOOPBACK)) == -1) panic_errorf(errno, "Couldn't create socket");

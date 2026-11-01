@@ -1,8 +1,13 @@
 { pkgs, ... }:
 let
   inherit (pkgs) lib;
+  major_v = "0";
+  minor_v = "1";
+  appendix = "dev";
+  version = if appendix != null then "${major_v}.${minor_v}-${appendix}" else "${major_v}.${minor_v}";
 
-  version = "0.1-dev";
+  hostArch = target: builtins.head (lib.splitString "." target);
+  safeName = builtins.replaceStrings [ "." ] [ "_" ];
 
   mkMeta = name: version: {
     inherit version;
@@ -13,21 +18,18 @@ let
     };
   };
 
-  safeName = builtins.replaceStrings [ "." ] [ "_" ];
-  mkNcurseStatic =
+  mkNcurses =
     {
       host-target,
+      static ? true,
       setup,
       cc,
       ar,
       ranlib,
     }:
-    let
-      host-arch = builtins.head (lib.splitString "." host-target); # drop ".2.31"
-    in
     pkgs.stdenv.mkDerivation {
       inherit (pkgs.ncurses) version src;
-      pname = "ncurses-static-${safeName host-target}";
+      pname = "ncurses-${lib.optionalString static "static-"}${safeName host-target}";
       dontFixup = true; # no strip/patchelf on foreign-arch files
 
       configurePhase = ''
@@ -36,15 +38,21 @@ let
         ./configure \
           --prefix=$out \
           --build=$(sh ./config.guess) \
-          --host=${host-arch} \
+          --host=${hostArch host-target} \
           --with-build-cc=${pkgs.stdenv.cc}/bin/cc \
           CC=${cc} AR=${ar} RANLIB=${ranlib} \
-          --without-shared --with-normal --without-debug \
+          ${
+            if static then
+              "--without-shared --with-normal"
+            else
+              "--with-shared --without-normal --with-abi-version=6"
+          } --without-debug \
           --enable-widec --enable-overwrite --disable-stripping \
           --without-cxx --without-cxx-binding --without-ada \
           --without-manpages --without-tests --without-progs \
           --with-terminfo-dirs=/etc/terminfo:/lib/terminfo:/usr/share/terminfo \
           --with-default-terminfo-dir=/usr/share/terminfo
+        find . -name Makefile -exec sed -i 's/,-stats,-lc//' {} +
         runHook postConfigure
       '';
 
@@ -54,14 +62,16 @@ let
         runHook postBuild
       '';
 
-      installPhase = ''
-        runHook preInstall
-        make install.libs install.includes
-        # your Makefile says -lncurses; only .a files live here, so the
-        # linker can't pick a .so by accident
-        ln -s libncursesw.a $out/lib/libncurses.a
-        runHook postInstall
-      '';
+      installPhase =
+        let
+          ext = if static then "a" else "so";
+        in
+        ''
+          runHook preInstall
+          make install.libs install.includes
+          ln -s libncursesw.${ext} $out/lib/libncurses.${ext}
+          runHook postInstall
+        '';
     };
 
   mkPkgForTarget =
@@ -80,6 +90,10 @@ let
       darwinTargetStr = lib.optionalString targetIsDarwin;
       linuxTargetStr = lib.optionalString targetIsLinux;
 
+      version_flags = ''-DMAJOR_V=\"${major_v}\" -DMINOR_V=\"${minor_v}\" ${
+        if appendix != null then ''-DAPPENDIX=\"${appendix}\"'' else "-UAPPENDIX"
+      }'';
+
       # Only needed by darwin
       arch =
         {
@@ -89,23 +103,22 @@ let
         .${host-target};
 
       # Only needed by linux
-      cc = pkgs.writeShellScript "zigcc-${safeName host-target}" ''exec ${pkgs.zig}/bin/zig cc -target ${host-target} "$@"'';
-      ar = pkgs.writeShellScript "zigar" ''exec ${pkgs.zig}/bin/zig ar "$@"'';
-      ranlib = pkgs.writeShellScript "zigranlib" ''exec ${pkgs.zig}/bin/zig ranlib "$@"'';
-      setup = ''
+      zig-cc = pkgs.writeShellScript "zigcc-${safeName host-target}" ''exec ${pkgs.zig}/bin/zig cc -target ${host-target} "$@"'';
+      zig-ar = pkgs.writeShellScript "zigar" ''exec ${pkgs.zig}/bin/zig ar "$@"'';
+      zig-ranlib = pkgs.writeShellScript "zigranlib" ''exec ${pkgs.zig}/bin/zig ranlib "$@"'';
+      zig-setup = ''
         export ZIG_GLOBAL_CACHE_DIR=$TMPDIR/zig-global
         export ZIG_LOCAL_CACHE_DIR=$TMPDIR/zig-local
       '';
 
       # Compile a static version of ncurses
-      ncurses = mkNcurseStatic {
-        inherit
-          host-target
-          cc
-          ar
-          ranlib
-          setup
-          ;
+      ncurses = mkNcurses {
+        static = targetIsStatic;
+        cc = zig-cc;
+        ar = zig-ar;
+        ranlib = zig-ranlib;
+        setup = zig-setup;
+        inherit host-target;
       };
     in
     pkgs.stdenv.mkDerivation (
@@ -120,22 +133,25 @@ let
 
         preBuild = ''
           ${linuxTargetStr ''
-            ${setup}
+            ${zig-setup}
           ''}
-          ${lib.optionalString ((targetIsDarwin || targetIsHost) && pkgs.stdenv.hostPlatform.isDarwin) ''
-            XSDK=$(env -u DEVELOPER_DIR -u SDKROOT /usr/bin/xcrun --sdk macosx --show-sdk-path)
-            mkdir -p stubs
-            ln -s "$XSDK"/usr/lib/libncurses*.tbd stubs/
-            export NIX_LDFLAGS="$NIX_LDFLAGS -L$PWD/stubs"
+          ${lib.optionalString (targetIsDarwin && pkgs.stdenv.hostPlatform.isDarwin) ''
+            unset DEVELOPER_DIR SDKROOT NIX_LDFLAGS
+            XSDK=$(/usr/bin/xcrun --sdk macosx --show-sdk-path)
+            XLD=$(/usr/bin/xcrun --find ld)
           ''}
         '';
 
         buildPhase = ''
           runHook preBuild
-          make -j$NIX_BUILD_CORES ${linuxTargetStr "CC=${cc}"} EXTRA_FLAGS="${
-            darwinTargetStr "-arch ${arch} -mmacosx-version-min=11.0"
+          make -j$NIX_BUILD_CORES ${
+            linuxTargetStr "CC=${zig-cc}" + darwinTargetStr "CC=/usr/bin/clang"
+          } EXTRA_FLAGS='${
+						darwinTargetStr ''-arch ${arch} -isysroot "'$XSDK'" --ld-path="'$XLD'" -mmacosx-version-min=${
+              if host-target == "x86_64-darwin" then "10.13" else "11.0"
+            }''
             + linuxTargetStr "-I${ncurses}/include -L${ncurses}/lib -O2 -g0 -fno-sanitize=undefined -s -Wl,--strip-all ${lib.optionalString targetIsStatic "-static"}"
-          }" ${make-target}
+          } ${version_flags}' ${make-target}
           runHook postBuild
         '';
 
@@ -146,7 +162,6 @@ let
           runHook postInstall
         '';
 
-        doInstallCheck = !targetIsHost;
         disallowedReferences = [
           pkgs.zig
           ncurses

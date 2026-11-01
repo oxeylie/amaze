@@ -1,13 +1,11 @@
 { pkgs, ... }:
 {
   default = pkgs.mkShell {
-    packages =
-      with pkgs;
-      [
-        gnumake
-        ncurses
-      ]
-      ++ (if pkgs.stdenv.isLinux then [ gcc ] else [ clang ]);
+    packages = with pkgs; [
+      gnumake
+      ncurses
+      gcc
+    ];
 
     shellHook = ''
       export SHELL_RC="$PWD/.zsh-shell"

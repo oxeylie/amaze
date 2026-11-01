@@ -13,6 +13,12 @@
 #include <stdio.h>
 #include <time.h>
 
+#ifndef APPENDIX
+#define V_STR MAJOR_V "." MINOR_V
+#else
+#define V_STR MAJOR_V "." MINOR_V "-" APPENDIX
+#endif
+
 #define _printf_like(fmt, va) __attribute__((format(printf, fmt, va)))
 #define _nonnull(...) __attribute__((nonnull __VA_OPT__((__VA_ARGS__))))
 

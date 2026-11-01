@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <sys/errno.h>
 
-#if defined(DEBUG_V) // Debug_Verbose functions
+#if defined(DEBUG) // Debug_Verbose functions
 #define DEBUG_LOGF(strf, ...) print_logf(strf __VA_OPT__(, ) __VA_ARGS__)
 #define DEBUG_ERRF(code, strf, ...) print_errf(code, strf __VA_OPT__(, ) __VA_ARGS__)
 #else
