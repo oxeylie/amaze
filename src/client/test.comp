@@ -1,3 +1,10 @@
+/**-----------------------------------------------------------------------*
+ * src/client/test.comp
+ * 
+ * Copyright (C) 2026 @oxeylie
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *-----------------------------------------------------------------------**/
+
 #version 450
 #extension GL_GOOGLE_include_directive : require
 layout(local_size_x = 64) in;

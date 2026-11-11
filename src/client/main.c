@@ -9,9 +9,9 @@
 #include <misc.h>
 #include <network/event.h>
 #include <network/protocol.h>
-#ifdef __linux__
+// #ifdef __linux__
 #include <vulkan/vulkan.h>
-#endif
+// #endif
 
 #include <arpa/inet.h>
 #include <curses.h>

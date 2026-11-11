@@ -61,12 +61,16 @@ $$($(1)_OBJSTR): $$($(1)_SRCDIR)/%.c $(if $(GPU_SUPPORT),$$($(1)_SHD) $(6),)
 
 $$($(1)_SPVSTR): $$($(1)_SRCDIR)/%.comp
 	@mkdir -p $$(dir $$@)
-	$(SC) -o $$@ -V $$< $$($(1)_SC_FLAGS)
+	$(SC) -o $$@ -V $$< $$($(1)_SC_FLAGS) 1>/dev/null
 
 # Doesn't compile .metallib because it needs XCode metal toolchain
 $$($(1)_MSLSTR): $$($(1)_SPVSTR)
 	@mkdir -p $$(dir $$@)
 	$(MCC) $$< --msl --output $$@ $$($(1)_MCC_FLAGS)
+
+.PHONY: $(1)_obj_target $(1)_shader_target
+$(1)_obj_target: $$($(1)_OBJ)
+$(1)_shader_target: $$($(1)_SHD)
 
 ifneq ($(7),) # Only make an end target if build_target is set
 $(1)_TARGET := $(OUTDIR)/$(7)

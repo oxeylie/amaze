@@ -6,8 +6,7 @@
       ncurses
     ];
     packages = with pkgs; [
-      gnumake
-      gcc
+      clang-tools
       glslang
       spirv-cross
       vulkan-loader
