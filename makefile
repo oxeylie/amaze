@@ -28,7 +28,8 @@ FLAGS       :=-std=gnu23 -Wall -Wextra -Wpedantic -Wshadow $(EXTRA_FLAGS)
 CC_FLAGS    :=$(FLAGS) -MMD -MP -DSHADER_EXT=$(SHD_EXT) \
 							$(if $(GPU_SUPPORT),-DGPU_SUPPORT,) $(if $(DL_SUPPORT),-DDL_SUPPORT,) $(if $(DEBUG),-DDEBUG,) \
 							-DMAJOR_V=\"$(MAJOR_V)\" -DMINOR_V=\"$(MINOR_V)\" $(if $(APPENDIX),-DAPPENDIX=\"$(APPENDIX)\",-UAPPENDIX)
-LD_FLAGS    :=-lncurses $(if $DL_SUPPORT,-ldl,) $(FLAGS)
+LD_FLAGS    :=-lncurses $(if $(DL_SUPPORT),-ldl,) \
+							$(if $(and $(GPU_SUPPORT),$(findstring darwin, $(HOST))),-framework Metal -framework Foundation -lobjc,) $(FLAGS)
 SC_FLAGS    :=
 MCC_FLAGS   :=
 

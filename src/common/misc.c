@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
 
+#include <log.h>
+#include <misc.h>
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -13,9 +16,6 @@
 #include <time.h>
 
 #include <sys/errno.h>
-
-#include <log.h>
-#include <misc.h>
 
 void eval_args(char** argv, size_t argc, const struct arg_def* arglv, size_t arglc) {
   for (size_t arg_idx = 1; arg_idx < argc; arg_idx++) { // Start at i = 1 because we don't care about path

@@ -8,7 +8,7 @@
 #ifndef LOG_H
 #define LOG_H
 
-#include <misc.h>
+#include <macros.h>
 #include <stdio.h>
 #include <sys/errno.h>
 

@@ -8,7 +8,7 @@
 #ifndef NET_SOCK_H
 #define NET_SOCK_H
 
-#include <misc.h>
+#include <macros.h>
 
 #include <stddef.h>
 #include <stdint.h>

@@ -9,9 +9,6 @@
 #include <misc.h>
 #include <network/event.h>
 #include <network/protocol.h>
-// #ifdef __linux__
-#include <vulkan/vulkan.h>
-// #endif
 
 #include <arpa/inet.h>
 #include <curses.h>
@@ -21,12 +18,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#ifdef GPU_SUPPORT
-char shader[] = {
-#embed _shader_file(test) suffix(, 0)
-};
-#endif
 
 // const struct arg_def argl[] = {};
 
