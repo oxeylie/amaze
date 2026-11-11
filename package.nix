@@ -147,7 +147,7 @@ let
           make -j$NIX_BUILD_CORES ${
             linuxTargetStr "CC=${zig-cc}" + darwinTargetStr "CC=/usr/bin/clang"
           } EXTRA_FLAGS='${
-						darwinTargetStr ''-arch ${arch} -isysroot "'$XSDK'" --ld-path="'$XLD'" -mmacosx-version-min=${
+            darwinTargetStr ''-arch ${arch} -isysroot "'$XSDK'" --ld-path="'$XLD'" -mmacosx-version-min=${
               if host-target == "x86_64-darwin" then "10.13" else "11.0"
             }''
             + linuxTargetStr "-I${ncurses}/include -L${ncurses}/lib -O2 -g0 -fno-sanitize=undefined -s -Wl,--strip-all ${lib.optionalString targetIsStatic "-static"}"
@@ -158,7 +158,7 @@ let
         installPhase = ''
           runHook preInstall
           mkdir -p $out/bin
-          cp ./out/${make-target} $out/bin/${name}
+          cp ./out/${name} $out/bin/${name}
           runHook postInstall
         '';
 

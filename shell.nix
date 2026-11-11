@@ -1,10 +1,17 @@
 { pkgs, ... }:
 {
   default = pkgs.mkShell {
+    buildInputs = with pkgs; [
+      vulkan-headers
+      ncurses
+    ];
     packages = with pkgs; [
       gnumake
-      ncurses
       gcc
+      glslang
+      spirv-cross
+      vulkan-loader
+      vulkan-validation-layers
     ];
 
     shellHook = ''
