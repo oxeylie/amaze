@@ -10,6 +10,7 @@ MINOR_V     := 1
 APPENDIX    := dev
 GPU_SUPPORT := true
 DL_SUPPORT  := true
+DEBUG       :=
 HOST        := $(if $(shell echo | $(CC) -dM -E - | grep -w __APPLE__),darwin,linux)
 
 CC  :=$(if $(and $(CC),$(filter $(origin CC),environment)),$(CC),gcc)
@@ -23,8 +24,9 @@ TESTDIR :=./tests
 SHD_EXT :=$(if $(findstring darwin, $(HOST)),metal,spv)
 
 EXTRA_FLAGS :=
-FLAGS       :=-std=gnu23 -Wall -Wextra $(EXTRA_FLAGS)
-CC_FLAGS    :=$(FLAGS) -MMD -MP -DSHADER_EXT=$(SHD_EXT) $(if $(GPU_SUPPORT),-DGPU_SUPPORT,-UGPU_SUPPORT) \
+FLAGS       :=-std=gnu23 -Wall -Wextra -Wpedantic -Wshadow $(EXTRA_FLAGS)
+CC_FLAGS    :=$(FLAGS) -MMD -MP -DSHADER_EXT=$(SHD_EXT) \
+							$(if $(GPU_SUPPORT),-DGPU_SUPPORT,) $(if $(DL_SUPPORT),-DDL_SUPPORT,) $(if $(DEBUG),-DDEBUG,) \
 							-DMAJOR_V=\"$(MAJOR_V)\" -DMINOR_V=\"$(MINOR_V)\" $(if $(APPENDIX),-DAPPENDIX=\"$(APPENDIX)\",-UAPPENDIX)
 LD_FLAGS    :=-lncurses $(if $DL_SUPPORT,-ldl,) $(FLAGS)
 SC_FLAGS    :=

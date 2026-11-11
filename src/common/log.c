@@ -78,7 +78,7 @@ const char* error_str(err code) {
     return error_messages[code];
   else
     return "Unknown error";
-};
+}
 
 // Local
 

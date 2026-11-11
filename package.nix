@@ -172,9 +172,10 @@ let
               (staticTargetStr "GPU_SUPPORT= DL_SUPPORT= ")
             ];
             cc_flags = lib.concatStringsSep " " [
+              "-O2 -s"
               "${version_flags} ${lib_flags} ${headers_flags}"
-              (linuxTargetStr "-O2 -g0 -fno-sanitize=undefined -s -Wl,--strip-all ${staticTargetStr "-static"}")
-              (darwinTargetStr "-arch ${target-arch} -isysroot \"'$XSDK'\" --ld-path=\"'$XLD'\" -mmacosx-version-min=${macosx-version-min}")
+              (linuxTargetStr " -Wl,--strip-all ${staticTargetStr "-static"}")
+              (darwinTargetStr "-Wl,-x -arch ${target-arch} -isysroot \"'$XSDK'\" --ld-path=\"'$XLD'\" -mmacosx-version-min=${macosx-version-min}")
             ];
           in
           ''

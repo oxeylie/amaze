@@ -156,7 +156,7 @@ int trigger_user_ev(qevent_t* ev_ctx) {
 
 #endif
   return 0;
-};
+}
 
 int free_user_ev(qevent_t* ev_ctx) {
   if (ev_ctx->queue != -1) {

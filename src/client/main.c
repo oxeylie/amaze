@@ -22,15 +22,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-// #ifdef GPU_SUPPORT
-// char shader[] = {
-// #embed _shader_file(test) suffix(, 0)
-// };
-// #endif
+#ifdef GPU_SUPPORT
+char shader[] = {
+#embed _shader_file(test) suffix(, 0)
+};
+#endif
 
-const struct arg_def argl[] = {};
-bool stop;
-int count;
+// const struct arg_def argl[] = {};
 
 void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* ev_ctx) {
   char str[64];
@@ -57,13 +55,13 @@ void handler(enum qevtype type, union qevdata data, [[maybe_unused]] qevent_t* e
     return;
   }
   print_logf("Read: %s", buf);
-};
+}
 
-int main(int argc, char** argv) {
+int main(/*int argc, char** argv*/) {
+  // eval_args(argv, argc, argl, sizeof(argl) / sizeof(const struct arg_def));
   DEBUG_LOGF("Debug enabled");
-  eval_args(argv, argc, argl, sizeof(argl) / sizeof(const struct arg_def));
   print_logf("Amaze version: %s", V_STR);
-  print_logf("ncurse version: %s", curses_version());
+  print_logf("Reported ncurse version: %s", curses_version());
 
 #ifdef GPU_SUPPORT
   print_logf("Reported shader ext: %s", STR(SHADER_EXT));
@@ -76,10 +74,7 @@ int main(int argc, char** argv) {
   if ((event = init_sock_ev(sock, handler, EVT_READ | EVT_RDHUP, NULL)) == NULL) panic_errorf(errno, "Creating event context");
   if (reg_ev(queue, event)) panic_errorf(errno, "Adding event to queue");
 
-  while (!stop && count < 10) {
-    count++;
-    if (handle_ev(queue, 10, NULL) == -1) panic_errorf(errno, "Handling events");
-  }
+  if (handle_ev(queue, 10, NULL) == -1) panic_errorf(errno, "Handling events");
 
   return 0;
 }
