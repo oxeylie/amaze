@@ -9,6 +9,9 @@
 #include <misc.h>
 #include <network/event.h>
 #include <network/protocol.h>
+#ifdef __linux__
+#include <vulkan/vulkan.h>
+#endif
 
 #include <arpa/inet.h>
 #include <curses.h>
@@ -18,6 +21,12 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+// #ifdef GPU_SUPPORT
+// char shader[] = {
+// #embed _shader_file(test) suffix(, 0)
+// };
+// #endif
 
 const struct arg_def argl[] = {};
 bool stop;
@@ -55,6 +64,10 @@ int main(int argc, char** argv) {
   eval_args(argv, argc, argl, sizeof(argl) / sizeof(const struct arg_def));
   print_logf("Amaze version: %s", V_STR);
   print_logf("ncurse version: %s", curses_version());
+
+#ifdef GPU_SUPPORT
+  print_logf("Reported shader ext: %s", STR(SHADER_EXT));
+#endif
 
   int sock, queue;
   qevent_t* event;

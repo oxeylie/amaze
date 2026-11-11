@@ -1,6 +1,6 @@
 /**-----------------------------------------------------------------------*
  * src/common/include/misc.h
- * 
+ *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
@@ -18,6 +18,10 @@
 #else
 #define V_STR MAJOR_V "." MINOR_V "-" APPENDIX
 #endif
+
+#define STR_(x) #x
+#define STR(x) STR_(x)
+#define _shader_file(name) STR(name.SHADER_EXT)
 
 #define _printf_like(fmt, va) __attribute__((format(printf, fmt, va)))
 #define _nonnull(...) __attribute__((nonnull __VA_OPT__((__VA_ARGS__))))

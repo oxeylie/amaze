@@ -85,17 +85,18 @@ let
       targetIsDarwin = lib.hasInfix "darwin" host-target;
       targetIsStatic = lib.hasInfix "musl" host-target;
       targetIsHost = host-target == "host";
-      hostTargetList = lib.optionals targetIsHost;
       linuxTargetList = lib.optionals targetIsLinux;
       darwinTargetStr = lib.optionalString targetIsDarwin;
       linuxTargetStr = lib.optionalString targetIsLinux;
+      staticTargetStr = lib.optionalString targetIsStatic;
+      hostTargetList = lib.optionals targetIsHost;
 
       version_flags = ''-DMAJOR_V=\"${major_v}\" -DMINOR_V=\"${minor_v}\" ${
         if appendix != null then ''-DAPPENDIX=\"${appendix}\"'' else "-UAPPENDIX"
       }'';
 
       # Only needed by darwin
-      arch =
+      target-arch =
         {
           aarch64-darwin = "arm64";
           x86_64-darwin = "x86_64";
@@ -112,7 +113,7 @@ let
       '';
 
       # Compile a static version of ncurses
-      ncurses = mkNcurses {
+      local-ncurses = mkNcurses {
         static = targetIsStatic;
         cc = zig-cc;
         ar = zig-ar;
@@ -120,6 +121,17 @@ let
         setup = zig-setup;
         inherit host-target;
       };
+
+      libs = linuxTargetList [ local-ncurses ] ++ hostTargetList [ pkgs.ncurses ];
+      headers =
+        linuxTargetList [
+          local-ncurses
+          pkgs.vulkan-headers
+        ]
+        ++ hostTargetList [
+          pkgs.ncurses
+          pkgs.vulkan-headers
+        ];
     in
     pkgs.stdenv.mkDerivation (
       {
@@ -128,32 +140,48 @@ let
         __noChroot = pkgs.stdenv.hostPlatform.isDarwin; # Needed since we need to call for Xcode
         dontFixup = targetIsLinux;
 
-        nativeBuildInputs = [ ] ++ linuxTargetList [ pkgs.patchelf ];
-        buildInputs = [ ] ++ hostTargetList [ pkgs.ncurses ];
+        nativeBuildInputs =
+          lib.optionals (!targetIsStatic) [ pkgs.glslang ]
+          ++ lib.optionals (targetIsDarwin || (targetIsHost && pkgs.stdenv.hostPlatform.isDarwin)) [
+            pkgs.spirv-cross
+          ]
+          ++ lib.optionals (targetIsLinux || (targetIsHost && pkgs.stdenv.hostPlatform.isLinux)) [
+            pkgs.patchelf
+            pkgs.addDriverRunpath
+          ];
+        buildInputs = libs;
 
-        preBuild = ''
-          ${linuxTargetStr ''
+        preBuild =
+          linuxTargetStr ''
             ${zig-setup}
-          ''}
-          ${lib.optionalString (targetIsDarwin && pkgs.stdenv.hostPlatform.isDarwin) ''
+          ''
+          + darwinTargetStr ''
             unset DEVELOPER_DIR SDKROOT NIX_LDFLAGS
             XSDK=$(/usr/bin/xcrun --sdk macosx --show-sdk-path)
             XLD=$(/usr/bin/xcrun --find ld)
-          ''}
-        '';
+          '';
 
-        buildPhase = ''
-          runHook preBuild
-          make -j$NIX_BUILD_CORES ${
-            linuxTargetStr "CC=${zig-cc}" + darwinTargetStr "CC=/usr/bin/clang"
-          } EXTRA_FLAGS='${
-            darwinTargetStr ''-arch ${arch} -isysroot "'$XSDK'" --ld-path="'$XLD'" -mmacosx-version-min=${
-              if host-target == "x86_64-darwin" then "10.13" else "11.0"
-            }''
-            + linuxTargetStr "-I${ncurses}/include -L${ncurses}/lib -O2 -g0 -fno-sanitize=undefined -s -Wl,--strip-all ${lib.optionalString targetIsStatic "-static"}"
-          } ${version_flags}' ${make-target}
-          runHook postBuild
-        '';
+        buildPhase =
+          let
+            macosx-version-min = if host-target == "x86_64-darwin" then "10.13" else "11.0";
+            lib_flags = lib.concatStringsSep " " (map (pkg: "-L${pkg}/lib") libs);
+            headers_flags = lib.concatStringsSep " " (map (pkg: "-I${pkg}/include") headers);
+            cc = linuxTargetStr zig-cc + darwinTargetStr "/usr/bin/clang";
+            make_flags = lib.concatStringsSep " " [
+              (lib.optionalString (cc != "") "CC=${cc} ")
+              (staticTargetStr "GPU_SUPPORT= DL_SUPPORT= ")
+            ];
+            cc_flags = lib.concatStringsSep " " [
+              "${version_flags} ${lib_flags} ${headers_flags}"
+              (linuxTargetStr "-O2 -g0 -fno-sanitize=undefined -s -Wl,--strip-all ${staticTargetStr "-static"}")
+              (darwinTargetStr "-arch ${target-arch} -isysroot \"'$XSDK'\" --ld-path=\"'$XLD'\" -mmacosx-version-min=${macosx-version-min}")
+            ];
+          in
+          ''
+            runHook preBuild
+            make -j$NIX_BUILD_CORES ${make_flags} EXTRA_FLAGS='${cc_flags}' ${make-target}
+            runHook postBuild
+          '';
 
         installPhase = ''
           runHook preInstall
@@ -162,10 +190,14 @@ let
           runHook postInstall
         '';
 
+        postFixup = linuxTargetStr ''
+          addDriverRunpath $out/bin/${name}
+        '';
+
         disallowedReferences = [
           pkgs.zig
-          ncurses
-        ];
+        ]
+        ++ lib.optionals (!targetIsHost) libs;
       }
       // mkMeta name version
     );
