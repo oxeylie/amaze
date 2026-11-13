@@ -9,10 +9,8 @@
 #include <stdint.h>
 #define FN static inline
 typedef uint32_t uint;
-
 #else
 #define FN
-
 #endif
 
 FN uint twice(uint x) { return x * 2u; }

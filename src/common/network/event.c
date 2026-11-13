@@ -1,15 +1,16 @@
 /**-----------------------------------------------------------------------*
  * src/common/network/event.c
  *
- * Todo:
- * - Make thread safe
- * - Add free_queue
- * - Remove socket creation functions
- * - Implement delayed unregistration
  *
  * Copyright (C) 2026 @oxeylie
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *-----------------------------------------------------------------------**/
+
+// TODO:
+// - Make thread safe
+// - Add free_queue
+// - Remove socket creation functions
+// - Implement delayed unregistration
 
 #include <network/event.h>
 
@@ -84,6 +85,7 @@ err_return:
   return -1;
 }
 
+/// Event creation
 qevent_t* init_user_ev(evhandler_t handler, void* u_data) {
   qevent_t* sock_ctx = NULL;
   int ident;
@@ -151,7 +153,7 @@ int trigger_user_ev(qevent_t* ev_ctx) {
   ssize_t n;
   do
     n = write(ev_ctx->ident, &(uint64_t){1}, sizeof(uint64_t));
-  while (n == -1 && errno == EINTR) ; // Retry on interrupts
+  while (n == -1 && errno == EINTR); // Retry on interrupts
   if (n != (ssize_t)sizeof(uint64_t)) return -1;
 
 #endif
@@ -218,6 +220,7 @@ int init_ev_queue() {
 #endif
 }
 
+/// Event registration
 int reg_ev(int queue_fd, qevent_t* ev_ctx) {
   if (ev_ctx->queue != -1) {
     errno = EEXIST;
@@ -350,6 +353,7 @@ int unreg_ev(qevent_t* ev_ctx) {
   return 0;
 }
 
+/// Event Handling
 int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout) {
   if (max_events == 0) {
     errno = EINVAL;
@@ -427,6 +431,7 @@ int handle_ev(int queue_fd, uint8_t max_events, const struct timespec* timeout) 
   return r; // Return number of processed events
 }
 
+/// Helpers
 static inline int set_sock_flags(int fd, int mask) {
   int socket_flags;
   if ((socket_flags = fcntl(fd, F_GETFL)) == -1)

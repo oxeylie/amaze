@@ -27,12 +27,14 @@
 
 #define objc_CLASS(class) (Class) objc_getClass(STR(class))
 #define objc_SEL(sel) (SEL) sel_registerName(STR(sel))
-#define objc_MTD(ret_t, obj, sel, ...) ((ret_t (*)(                             \
+#define objc_CALLMTD(ret_t, obj, sel, ...) ((ret_t (*)(                         \
     typeof(obj), SEL __VA_OPT__(, FOR_EACH_TYPEOF(__VA_ARGS__))))objc_msgSend)( \
     (obj), (sel)__VA_OPT__(, __VA_ARGS__))
-#define NSString(c_str) objc_MTD(id,                                                  \
-                                 objc_MTD(id, objc_CLASS(NSString), objc_SEL(alloc)), \
-                                 objc_SEL(initWithUTF8String), c_str)
+#define NSString(c_str) objc_CALLMTD(id,                                                      \
+                                     objc_CALLMTD(id, objc_CLASS(NSString), objc_SEL(alloc)), \
+                                     objc_SEL(initWithUTF8String), c_str)
+
+typedef long unsigned NSUInteger;
 
 extern void* objc_autoreleasePoolPush();
 extern void objc_autoreleasePoolPop(void* pool);
