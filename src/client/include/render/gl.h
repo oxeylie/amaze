@@ -13,6 +13,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #if defined(__linux__)
 #define GL_USE_VULKAN
@@ -21,28 +22,91 @@
 #endif
 #define _shader_file(name) STR(name.SHADER_EXT)
 
-struct gldev_t;
-typedef struct gldev_t gldev_t;
+#define GLINST_MAX_DEVS 16
+#define GLDEV_MAX_CMDQUEUES 16
+#define GLDEV_MAX_SHADERS 64
+#define GLDEV_MAX_PIPELINES 64
 
-// Runs init for GL
-// - [return] 0 on success, -1 on failure + errno
-int init_gl();
+enum glpipeline_type {
+  GLPIPL_COMPUTE = 0
+};
+
+typedef struct glpipeline_opdata* glpipeline_t;
+typedef struct glshader_opdata* glshader_t;
+typedef struct glshaderep_opdata* glshaderep_t;
+typedef struct glcmdqueue_opdata* glcmdqueue_t;
+typedef struct glinst* glinst_t;
+typedef struct gldev* gldev_t;
+
+// Opaque structures
+struct glcmdqueue_opdata;
+struct glshaderep_opdata;
+struct glshaner_opdata;
+struct glpipeline_opdata;
+struct gldev_opdata;
+struct glinst_opdata;
+
+// Public structures
+struct gldev {
+  // Public
+  glinst_t assoc_inst;       // Device's instance
+  glcmdqueue_t* cmdqueues_v; // Device's cmdqueues
+  uint cmdqueues_c;          // Command queue count
+  glshader_t* shaders_v;     // Loaded shaders on device
+  uint shaders_c;            // Shader count
+  glpipeline_t* pipelines_v; // Loaded pipelines on device
+  uint pipelines_c;          // Pipeline count
+
+  /// Opaque data
+  struct gldev_opdata* _data; // Implementation-specific data
+};
+struct glinst {
+  // Public
+  gldev_t* devs_v; // Available devices on system
+  uint devs_c;     // Device count
+
+  /// Opaque data
+  struct glinst_opdata* _data; // Implementation-specific data
+};
+
+/// GL operations
+// - [return] glinst_t on success, NULL on failure + errno
+glinst_t init_glinst();
 // Runs free for GL
-// - [return] 0 on success, -1 on failure + errno
-int free_gl();
+// - instance contains the glinst_t to be freed
+void shutdown_glinst(glinst_t instance);
 
+/// GL devices operations
 // Lists & alloc GPUs devices on the system
-// - devices contains a list to be populated by devices
-// - count contains the maximum number of devices to be fetched
+// - instance contains the glinst_t to be populated
 // - [return] number of fetched devices on success, -1 on failure
-int init_gldevs(gldev_t** devices, unsigned int count);
+int init_gldevs(glinst_t instance, gldev_t* devices, uint max_devices);
 // Frees GPU device
-// - device conatins the adress of the device to be freed
-void free_gldev(gldev_t* device);
+// - device contains the device to be freed
+void shutdown_gldev(gldev_t device);
+// Inits the device's command queue
+// - device contains the GPU from which the command queue must be initialized
+// - [return] return glcmdqueue_t on success, NULL on failure + errno
+glcmdqueue_t init_glcmdqueue(gldev_t device);
 
-// void* gldev_load_shader(void* device, char* shader_str);
-// void* shader_get_fnref(void* shader, char* symbol_name);
-// void* gpu_create_fnpipeline(void* gpu, void* shader_fn);
+/// Shader operations
+// Load a shader on a GPU device
+// - device contains the GPU device on which the shader should be loaded
+// - shader_data contains the shader to be loaded on the device
+// - [return] glshader_t shader on success, NULL on failure + errno
+glshader_t create_glshader(gldev_t device, uint8_t* shader_data);
+// Return a shader entrypoint
+// - shader contains the shader from which the entry point will be fetched
+// - symbol_name entry point name
+// - [return] glshaderep_t shader entry on success, NULL on failure + errno
+glshaderep_t create_glshaderep(glshader_t shader, char* symbol_name);
+
+// Create a compute pipeline on a device
+// - device contains the GPU device on which the pipeline should be created
+// - entrypoint contains the entrypoint for a shader function to be executed in the pipeline
+// - [return] glpipeline_t pipeline on success, NULL on failure + errno
+glpipeline_t create_glpipeline(gldev_t device, glshaderep_t entrypoint, enum glpipeline_type pipeline_type);
+
 // void* gpu_create_cmdqueue(void* gpu);
 // void* gpu_create_cmdbuf(void* cmdqueue);
 // void* gpu_create_databuf(void* gpu, size_t size);

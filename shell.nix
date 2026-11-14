@@ -7,7 +7,7 @@
     ];
     packages = with pkgs; [
       clang-tools
-      glslang
+      shader-slang
       spirv-cross
       vulkan-loader
       vulkan-validation-layers

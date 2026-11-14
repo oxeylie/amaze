@@ -14,14 +14,14 @@ DEBUG       :=
 HOST        := $(if $(shell echo | $(CC) -dM -E - | grep -w __APPLE__),darwin,linux)
 
 CC  :=$(if $(and $(CC),$(filter $(origin CC),environment)),$(CC),gcc)
-SC  :=glslang
-MCC :=spirv-cross
+SC  :=slangc
 
 ODIR    :=./build
 OUTDIR  :=./out
 BASEDIR :=./src
 TESTDIR :=./tests
 SHD_EXT :=$(if $(findstring darwin, $(HOST)),metal,spv)
+SHD_TYP :=$(if $(findstring darwin, $(HOST)),metal,spirv)
 
 EXTRA_FLAGS :=
 FLAGS       :=-std=gnu23 -Wall -Wextra -Wpedantic -Wshadow $(EXTRA_FLAGS)
@@ -31,8 +31,6 @@ CC_FLAGS    :=$(FLAGS) -MMD -MP -DSHADER_EXT=$(SHD_EXT) \
 LD_FLAGS    :=-lncurses $(if $(DL_SUPPORT),-ldl,) \
 							$(if $(and $(GPU_SUPPORT),$(findstring darwin, $(HOST))),-framework Metal -framework Foundation -lobjc,) $(FLAGS)
 SC_FLAGS    :=
-MCC_FLAGS   :=
-
 
 # $(1) = name, $(2) = source, $(3) = build specific flags, $(4) = build specific include dirs, $(5) = extra objs, $(6) = extra shader objs, $(7) = build target
 define BUILD_TEMPLATE
@@ -42,32 +40,24 @@ $(1)_INCDIRS :=$$($(1)_SRCDIR)/include $(4)
 $(1)_SRC    :=$$(shell find $$($(1)_SRCDIR) -type f -name '*.c')
 $(1)_OBJSTR :=$(ODIR)/$1/%.o
 $(1)_OBJ    :=$$(patsubst $$($(1)_SRCDIR)/%.c, $$($(1)_OBJSTR), $$($(1)_SRC))
-$(1)_GLS    :=$$(shell find $$($(1)_SRCDIR) -type f -name '*.comp')
-$(1)_SPVSTR :=$(ODIR)/$1/%.spv
-$(1)_SPV    :=$$(patsubst $$($(1)_SRCDIR)/%.comp, $$($(1)_SPVSTR), $$($(1)_GLS))
-$(1)_MSLSTR :=$(ODIR)/$1/%.metal
-$(1)_MSL    :=$$(patsubst $$($(1)_SPVSTR), $$($(1)_MSLSTR), $$($(1)_SPV))
-$(1)_SHD    :=$(if $(findstring darwin, $(HOST)),$$($(1)_MSL),$$($(1)_SPV))
+$(1)_SLANG  :=$$(shell find $$($(1)_SRCDIR) -type f -name '*.slang')
+$(1)_SHDSTR :=$(ODIR)/$1/%.$(SHD_EXT)
+$(1)_SHD    :=$$(patsubst $$($(1)_SRCDIR)/%.slang, $$($(1)_SHDSTR), $$($(1)_SLANG))
 
 $(1)_EMBDIRS :=$$(dir $$($(1)_SHD) $(6))
 
 $(1)_CC_FLAGS  :=$(CC_FLAGS) $$(addprefix -I,$$(sort $$($(1)_INCDIRS))) $$(addprefix --embed-dir=, $$(sort $$($(1)_EMBDIRS)))$(3)
 $(1)_LD_FLAGS  :=$(LD_FLAGS) $(3)
 $(1)_SC_FLAGS  :=$(SC_FLAGS) $$(addprefix -I,$$(sort $$($(1)_INCDIRS)))
-$(1)_MCC_FLAGS :=$(MCC_FLAGS)
 
 $$($(1)_OBJSTR): $$($(1)_SRCDIR)/%.c $(if $(GPU_SUPPORT),$$($(1)_SHD) $(6),)
 	@mkdir -p $$(dir $$@)
 	$(CC) -o $$@ -c $$< $$($(1)_CC_FLAGS)
 
-$$($(1)_SPVSTR): $$($(1)_SRCDIR)/%.comp
+$$($(1)_SHDSTR): $$($(1)_SRCDIR)/%.slang
 	@mkdir -p $$(dir $$@)
-	$(SC) -o $$@ -V $$< $$($(1)_SC_FLAGS) 1>/dev/null
-
-# Doesn't compile .metallib because it needs XCode metal toolchain
-$$($(1)_MSLSTR): $$($(1)_SPVSTR)
-	@mkdir -p $$(dir $$@)
-	$(MCC) $$< --msl --output $$@ $$($(1)_MCC_FLAGS)
+	@rm -f $$@
+	$(SC) -o $$@ -target $(SHD_TYP) $$< $$($(1)_SC_FLAGS)
 
 .PHONY: $(1)_obj_target $(1)_shader_target
 $(1)_obj_target: $$($(1)_OBJ)
