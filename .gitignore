@@ -3,3 +3,4 @@ build/
 out/
 result
 compile_commands.json
+slangdconfig.json
