@@ -134,6 +134,7 @@ let
 
           cat > $SHELL_RC <<-'EOF'
           TRAPEXIT() {
+            rm "$SHELL_RC"
             rm "$NVIM_RC"
           }
           EOF
