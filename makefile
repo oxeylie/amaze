@@ -78,7 +78,7 @@ endif
 -include $$($(1)_OBJ:.o=.d)
 endef
 
-.PHONY: all check clean tests
+.PHONY: all check clean tests lsp_configs
 all: client server
 tests: common_test client_test server_test
 clean:
@@ -105,6 +105,9 @@ SPACE       := $(empty) $(empty)
 JSON_PATHS  := $(subst $(SPACE),$(COMMA),$(patsubst %,"%",$(client_INCDIRS) $(common_INCDIRS) $(server_INCDIRS)))
 JSON_MACROS := $(subst $(SPACE),$(COMMA),$(patsubst %,"%",$(SC_DEFINES)))
 
+lsp_configs: compile_commands.json slangdconfig.json
 slangdconfig.json: Makefile
-	@printf '{  "slang.additionalSearchPaths": [%s], "slang.predefinedMacros": [%s]  }' \
+	@printf '{ "slang": { "additionalSearchPaths": [%s], "predefinedMacros": [%s] } }' \
 		'$(JSON_PATHS)' '$(JSON_MACROS)' > $@
+compile_commands.json: Makefile clean
+	@compiledb make
